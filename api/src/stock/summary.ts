@@ -11,7 +11,9 @@ export type TypeStock = {
   houseTypeId: number;
   houseTypeName: string;
   salesCategory: string | null;
+  // Smallest and largest land size of the type: corner (HOOK) and oversized lots vary.
   landSize: number | null;
+  landSizeMax: number | null;
   buildingSize: number | null;
   availableUnits: number;
   totalUnits: number;
@@ -43,6 +45,7 @@ type TypeRow = {
   house_type_name: string;
   sales_category: string | null;
   land_size: number | null;
+  land_size_max: number | null;
   building_size: number | null;
   total: number;
   available: number;
@@ -64,7 +67,8 @@ export async function getStockSummary(now: Date = new Date()): Promise<StockSumm
     await db.execute<TypeRow>(sql`
       select p.id as project_id, u.house_type_id, u.house_type_name,
         max(u.sales_category) as sales_category,
-        max(u.land_size) as land_size,
+        min(u.land_size) as land_size,
+        max(u.land_size) as land_size_max,
         max(u.building_size) as building_size,
         count(*)::int as total,
         (count(*) filter (where u.is_available_for_sale))::int as available,
@@ -106,6 +110,7 @@ export async function getStockSummary(now: Date = new Date()): Promise<StockSumm
           houseTypeName: r.house_type_name,
           salesCategory: r.sales_category,
           landSize: num(r.land_size),
+          landSizeMax: num(r.land_size_max),
           buildingSize: num(r.building_size),
           availableUnits: r.available,
           totalUnits: r.total,
