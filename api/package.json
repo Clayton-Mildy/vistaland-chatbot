@@ -1,0 +1,38 @@
+{
+  "name": "vistaland-api",
+  "version": "0.1.0",
+  "description": "Moni WhatsApp AI sales agent - backend API",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "build:scripts": "esbuild scripts/migrate.ts scripts/seed.ts --bundle --platform=node --target=node24 --format=esm --packages=external --outdir=dist-scripts",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "db:seed": "tsx scripts/seed.ts"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.0",
+    "dotenv": "^17.4.2",
+    "drizzle-orm": "^0.43.0",
+    "fastify": "^5.8.0",
+    "pg": "^8.13.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^24.0.0",
+    "@types/pg": "^8.11.0",
+    "drizzle-kit": "^0.31.0",
+    "esbuild": "^0.25.0",
+    "tsx": "^4.19.0",
+    "typescript": "~5.8.0",
+    "vitest": "^3.0.0"
+  }
+}

@@ -1,0 +1,15 @@
+# Local development database. Tests use the vistaland_test database created by the init script.
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: vistaland
+    ports:
+      - "54329:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./deploy/dev/init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql:ro
+
+volumes:
+  pgdata:

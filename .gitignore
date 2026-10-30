@@ -1,0 +1,9 @@
+node_modules
+dist
+dist-scripts
+.next
+.env
+.env.local
+deploy/.env
+*.log
+.superpowers

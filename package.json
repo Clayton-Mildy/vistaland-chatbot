@@ -1,0 +1,11 @@
+{
+  "name": "vistaland-chatbot",
+  "private": true,
+  "description": "Moni - WhatsApp AI sales agent for Vista Land. Two independent packages: api/ and dashboard/.",
+  "scripts": {
+    "setup": "npm --prefix api i && npm --prefix dashboard i",
+    "db:up": "docker compose -f docker-compose.dev.yml up -d",
+    "test": "npm --prefix api test && npm --prefix dashboard test",
+    "dev": "npm --prefix api run dev & npm --prefix dashboard run dev"
+  }
+}
