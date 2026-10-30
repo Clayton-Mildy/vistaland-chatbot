@@ -26,6 +26,10 @@ const envSchema = z.object({
   CHAKRA_WEBHOOK_SECRET: z.string().default(''),
   // Honoured only with NODE_ENV=development, for local webhook testing.
   SKIP_HMAC_IN_DEV: z.stringbool().default(false),
+  // Claude. An empty key makes every turn fail over to staff.
+  ANTHROPIC_API_KEY: z.string().default(''),
+  MONI_MODEL: z.string().default('claude-opus-5-5'),
+  MONI_EFFORT: z.enum(['low', 'medium', 'high']).default('medium'),
 });
 
 export type Config = z.infer<typeof envSchema>;

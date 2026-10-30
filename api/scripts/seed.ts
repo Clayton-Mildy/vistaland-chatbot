@@ -1,6 +1,6 @@
 /**
- * Idempotent seed: the projects Moni sells and their VLES mapping, then the first dashboard admin
- * (only while no staff exist). Safe to re-run.
+ * Idempotent seed: the projects Moni sells and their VLES mapping, the first FLOW MONI prompt version
+ * (only while none exists), then the first dashboard admin (only while no staff exist). Safe to re-run.
  *
  *   npm run db:seed                 (dev, from api/)
  *   node dist-scripts/seed.js       (container)
@@ -13,6 +13,8 @@ import 'dotenv/config';
 import { closeDb } from '../src/db/client.js';
 import { upsertProjectBySlug, type ProjectSeed } from '../src/repositories/projects.js';
 import { countStaff, createStaff } from '../src/repositories/staff.js';
+import { listPromptVersions, savePromptVersion } from '../src/repositories/promptVersions.js';
+import { FLOW_MONI } from '../src/agent/prompts/flowMoni.js';
 
 const PROJECTS: ProjectSeed[] = [
   { slug: 'zetira', displayName: 'Zetira', personaTeamName: 'tim Zetira', locationLabel: 'Cibitung', vlesProjectId: 5, vlesAreaIds: [37] },
@@ -23,6 +25,11 @@ const PROJECTS: ProjectSeed[] = [
 for (const p of PROJECTS) {
   const row = await upsertProjectBySlug(p);
   console.log(`project ${row.id} ${row.slug} -> VLES project ${row.vlesProjectId}, areas [${row.vlesAreaIds.join(', ')}]`);
+}
+
+if ((await listPromptVersions(1)).length === 0) {
+  const v = await savePromptVersion(FLOW_MONI, null);
+  console.log(`Prompt version ${v.id} seeded from FLOW MONI`);
 }
 
 if ((await countStaff()) > 0) {
