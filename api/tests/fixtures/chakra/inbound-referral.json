@@ -1,0 +1,46 @@
+{
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "WABA-1",
+      "changes": [
+        {
+          "field": "messages",
+          "value": {
+            "messaging_product": "whatsapp",
+            "metadata": {
+              "display_phone_number": "6281100000000",
+              "phone_number_id": "PNID-1"
+            },
+            "contacts": [
+              {
+                "profile": {
+                  "name": "Sari"
+                },
+                "wa_id": "6281234567890"
+              }
+            ],
+            "messages": [
+              {
+                "from": "6281234567890",
+                "timestamp": "1793420000",
+                "id": "wamid.REF1",
+                "type": "text",
+                "text": {
+                  "body": "Halo, saya mau info"
+                },
+                "referral": {
+                  "source_url": "https://fb.me/ad1",
+                  "source_id": "120210000000",
+                  "source_type": "ad",
+                  "headline": "Promo Zetira Cibitung",
+                  "body": "Rumah 2 KT mulai 400 jt"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

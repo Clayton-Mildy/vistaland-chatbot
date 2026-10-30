@@ -9,6 +9,7 @@ export default defineConfig({
       API_SECRET_KEY: 'test-secret-test-secret-test-secret-00',
       LOG_LEVEL: 'silent',
       MEDIA_DIR: 'tests/.media',
+      CHAKRA_WEBHOOK_SECRET: 'test-webhook-secret',
     },
     // DB tests truncate shared tables, so files must not run concurrently.
     fileParallelism: false,

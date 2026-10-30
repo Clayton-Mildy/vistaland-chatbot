@@ -1,0 +1,41 @@
+{
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "WABA-1",
+      "changes": [
+        {
+          "field": "messages",
+          "value": {
+            "messaging_product": "whatsapp",
+            "metadata": {
+              "display_phone_number": "6281100000000",
+              "phone_number_id": "PNID-1"
+            },
+            "contacts": [
+              {
+                "profile": {
+                  "name": "Sari"
+                },
+                "wa_id": "6281234567890"
+              }
+            ],
+            "messages": [
+              {
+                "from": "6281234567890",
+                "timestamp": "1793420000",
+                "id": "wamid.AUD1",
+                "type": "audio",
+                "audio": {
+                  "id": "MEDIA-2",
+                  "mime_type": "audio/ogg; codecs=opus",
+                  "voice": true
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

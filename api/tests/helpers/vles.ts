@@ -17,14 +17,14 @@ export function json(status: number, body: unknown, headers: Record<string, stri
 /** A fetch that answers with the scripted responses in order and records what it was asked. */
 export function fakeFetch(responses: Response[]): {
   fetch: typeof fetch;
-  calls: { url: string; headers: Record<string, string> }[];
+  calls: { url: string; headers: Record<string, string>; body?: string }[];
 } {
-  const calls: { url: string; headers: Record<string, string> }[] = [];
+  const calls: { url: string; headers: Record<string, string>; body?: string }[] = [];
   const queue = [...responses];
   const fake = (async (input: string | URL | Request, init?: RequestInit) => {
     const headers: Record<string, string> = {};
     new Headers(init?.headers).forEach((v, k) => (headers[k.toLowerCase()] = v));
-    calls.push({ url: String(input), headers });
+    calls.push({ url: String(input), headers, ...(typeof init?.body === 'string' ? { body: init.body } : {}) });
     const next = queue.shift();
     if (!next) throw new Error('fakeFetch: no scripted response left');
     return next;

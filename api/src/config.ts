@@ -17,6 +17,15 @@ const envSchema = z.object({
   // Public origin WhatsApp fetches materials from (Caddy routes /media/* to the API).
   PUBLIC_BASE_URL: z.string().url().default('http://localhost:50060'),
   MEDIA_DIR: z.string().default('./media'),
+  // ChakraHQ (WhatsApp Business provider). Empty token: Moni cannot send.
+  CHAKRA_BASE_URL: z.string().url().default('https://api.chakrahq.com'),
+  CHAKRA_PLUGIN_ID: z.string().default(''),
+  CHAKRA_API_VERSION: z.string().default('v22.0'),
+  CHAKRA_ACCESS_TOKEN: z.string().default(''),
+  // Webhooks with a wrong or missing signature are acknowledged and dropped.
+  CHAKRA_WEBHOOK_SECRET: z.string().default(''),
+  // Honoured only with NODE_ENV=development, for local webhook testing.
+  SKIP_HMAC_IN_DEV: z.stringbool().default(false),
 });
 
 export type Config = z.infer<typeof envSchema>;
