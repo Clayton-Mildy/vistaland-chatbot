@@ -14,3 +14,8 @@ export function formatRupiahShort(n: number): string {
 export function todayWib(now: Date = new Date()): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(now);
 }
+
+/** 433425660 -> "Rp433.425.660". */
+export function formatRupiah(n: number): string {
+  return `Rp${decimals(0).format(n)}`;
+}
