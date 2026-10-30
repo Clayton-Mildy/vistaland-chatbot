@@ -63,3 +63,21 @@ it('every recorded fixture parses with its schema', () => {
   expect(fixture('unit-detail-for-sale.json').schemes.length).toBeGreaterThan(0);
   for (const r of fixture('units-tombstone.json').data) expect(isTombstone(r)).toBe(true);
 });
+
+it('aborts a request that stalls past the timeout and retries it', async () => {
+  let calls = 0;
+  const stalled = (async (_url: string | URL | Request, init?: RequestInit) => {
+    calls++;
+    return new Promise<Response>((_resolve, reject) => {
+      init?.signal?.addEventListener('abort', () => reject(init.signal!.reason));
+    });
+  }) as typeof fetch;
+  const slept: number[] = [];
+  const err = await opts({ fetch: stalled, timeoutMs: 20, sleep: async (ms) => { slept.push(ms); } })
+    .listPage('units', { updatedSince: 'x' })
+    .catch((e) => e);
+  expect(err).toBeInstanceOf(VlesError);
+  expect(err.status).toBe(0);
+  expect(calls).toBe(3);
+  expect(slept).toEqual([2000, 4000]);
+});

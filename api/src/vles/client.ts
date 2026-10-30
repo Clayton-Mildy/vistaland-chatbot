@@ -23,6 +23,9 @@ export type VlesClient = {
 const BACKOFF_MS = [2000, 4000];
 const MAX_RATE_LIMIT_RETRIES = 3;
 const DEFAULT_RETRY_AFTER_S = 60;
+// A connection that accepts and then stalls would otherwise hold the sync for undici's 5 minutes
+// per attempt; aborting turns it into an ordinary retried network error.
+const DEFAULT_TIMEOUT_MS = 30_000;
 
 export function createVlesClient(opts: {
   baseUrl: string;
@@ -31,10 +34,12 @@ export function createVlesClient(opts: {
   fetch?: typeof fetch;
   sleep?: (ms: number) => Promise<void>;
   now?: () => number;
+  timeoutMs?: number;
 }): VlesClient {
   const doFetch = opts.fetch ?? fetch;
   const rawSleep = opts.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   const now = opts.now ?? Date.now;
+  const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const minIntervalMs = 60_000 / opts.maxRequestsPerMinute;
   const baseUrl = opts.baseUrl.replace(/\/+$/, '');
 
@@ -65,7 +70,10 @@ export function createVlesClient(opts: {
       await throttle();
       let res: Response;
       try {
-        res = await doFetch(url, { headers: { Authorization: `Bearer ${opts.apiKey}`, Accept: 'application/json' } });
+        res = await doFetch(url, {
+          headers: { Authorization: `Bearer ${opts.apiKey}`, Accept: 'application/json' },
+          signal: AbortSignal.timeout(timeoutMs),
+        });
       } catch (err) {
         if (serverRetries < BACKOFF_MS.length) {
           await sleep(BACKOFF_MS[serverRetries++]!);
