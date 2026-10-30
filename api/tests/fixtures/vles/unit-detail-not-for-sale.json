@@ -1,0 +1,84 @@
+{
+  "data": {
+    "id": 1647,
+    "project_id": 5,
+    "area_id": 5,
+    "area_name": "Gran Harmoni Cibitung",
+    "unit_number": "D1/42",
+    "block": "D1",
+    "unit": "42",
+    "house_type_id": 99,
+    "house_type_name": "TYPE 32/60",
+    "land_size": 60,
+    "building_size": 32,
+    "stage": 14,
+    "stage_label": "Akad",
+    "marketing_stock_stage": {
+      "code": 1,
+      "label": "Siap jual"
+    },
+    "is_available_for_sale": false,
+    "selling_price": 236400000,
+    "price_list_in_period": false,
+    "facing": {
+      "id": 1,
+      "name": "Timur"
+    },
+    "strategic_position": {
+      "id": 122,
+      "name": "STRATEGIS 5JT",
+      "fixed_cost": 5000000
+    },
+    "sales_category": "komersil",
+    "business_group_label": "Vista",
+    "ready": 1,
+    "deleted": false,
+    "updated_at": "2026-01-29T16:34:38+07:00",
+    "project_code": "ghc",
+    "project_name": "Gran Harmoni Cibitung",
+    "company_id": 5,
+    "company_code": "VKP",
+    "company_name": "PT. Vista Karya Propertindo",
+    "business_group": 1,
+    "marketing_stock_id": 39728,
+    "price_list_id": 1028,
+    "price_list_number": "PL-KOM/GHC/2025/001",
+    "price_list_name": "GHC KOM D1-42 SUDAH AKAD",
+    "period_from": "2024-04-19",
+    "period_to": "2024-12-31",
+    "booking_fee_vpro": 0,
+    "legality": {
+      "code": 1,
+      "label": "Ya"
+    },
+    "is_special": false,
+    "allocation": {
+      "id": 8,
+      "name": "Rumah Komersil"
+    },
+    "land_over_parent_unit_id": null,
+    "land_over_size": 0,
+    "land_over_nonsert_size": null,
+    "electric_power": 1300,
+    "building_class": {
+      "code": 2,
+      "label": "Real Estate (RE)"
+    },
+    "active_transaction_id": null,
+    "stage_changed_at": null
+  },
+  "schemes": [
+    {
+      "id": 5194,
+      "name": "KOM CASH KERAS PPN 5.5%",
+      "selling_price": 230623000,
+      "booking_fee": null,
+      "deposit": 0,
+      "ppn": 12023000,
+      "alias_name": "KOM CASH KERAS PPN 5.5%",
+      "scheme_type": null,
+      "ppn_percent": 5.5,
+      "kpr_bank_id": null
+    }
+  ]
+}

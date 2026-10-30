@@ -1,0 +1,139 @@
+{
+  "data": [
+    {
+      "id": 3,
+      "project_id": 5,
+      "code": null,
+      "name": "DISKON BBA",
+      "sales_category": "subsidi",
+      "benefit_type": {
+        "code": "biaya_titipan",
+        "label": "Diskon biaya titipan"
+      },
+      "benefit_amount": 4000000,
+      "benefit_percent": null,
+      "description_customer": null,
+      "terms": null,
+      "valid_from": "2024-01-01",
+      "valid_to": "2024-05-18",
+      "status": {
+        "code": "approved",
+        "label": "Disetujui PM dan Finance"
+      },
+      "approved_at": null,
+      "is_usable": false,
+      "deleted": false,
+      "updated_at": "2024-06-20T08:32:53+07:00"
+    },
+    {
+      "id": 7,
+      "project_id": 5,
+      "code": null,
+      "name": "DISKON BF 500RB",
+      "sales_category": "subsidi",
+      "benefit_type": {
+        "code": "booking_fee",
+        "label": "Diskon booking fee"
+      },
+      "benefit_amount": 500000,
+      "benefit_percent": null,
+      "description_customer": null,
+      "terms": null,
+      "valid_from": "2024-08-01",
+      "valid_to": "2024-12-31",
+      "status": {
+        "code": "waiting",
+        "label": "Menunggu persetujuan"
+      },
+      "approved_at": null,
+      "is_usable": false,
+      "deleted": false,
+      "updated_at": "2024-08-05T13:22:28+07:00"
+    },
+    {
+      "id": 9,
+      "project_id": 5,
+      "code": null,
+      "name": "DISKON BF 1JT",
+      "sales_category": "komersil",
+      "benefit_type": {
+        "code": "booking_fee",
+        "label": "Diskon booking fee"
+      },
+      "benefit_amount": 1000000,
+      "benefit_percent": null,
+      "description_customer": null,
+      "terms": null,
+      "valid_from": "2024-08-01",
+      "valid_to": "2024-12-31",
+      "status": {
+        "code": "waiting",
+        "label": "Menunggu persetujuan"
+      },
+      "approved_at": null,
+      "is_usable": false,
+      "deleted": false,
+      "updated_at": "2024-11-13T17:24:21+07:00"
+    },
+    {
+      "id": 23,
+      "project_id": 5,
+      "code": null,
+      "name": "DISKON HABERNAS",
+      "sales_category": "subsidi",
+      "benefit_type": {
+        "code": "booking_fee",
+        "label": "Diskon booking fee"
+      },
+      "benefit_amount": 500000,
+      "benefit_percent": null,
+      "description_customer": null,
+      "terms": null,
+      "valid_from": "2024-12-01",
+      "valid_to": "2025-01-31",
+      "status": {
+        "code": "waiting",
+        "label": "Menunggu persetujuan"
+      },
+      "approved_at": null,
+      "is_usable": false,
+      "deleted": false,
+      "updated_at": "2024-12-13T13:47:25+07:00"
+    },
+    {
+      "id": 30,
+      "project_id": 25,
+      "code": null,
+      "name": "PROMO VISTA PORA 2026",
+      "sales_category": "subsidi",
+      "benefit_type": {
+        "code": "booking_fee",
+        "label": "Diskon booking fee"
+      },
+      "benefit_amount": 500000,
+      "benefit_percent": null,
+      "description_customer": null,
+      "terms": null,
+      "valid_from": "2026-09-01",
+      "valid_to": "2026-11-15",
+      "status": {
+        "code": "approved",
+        "label": "Disetujui PM dan Finance"
+      },
+      "approved_at": "2026-09-02T08:56:18+07:00",
+      "is_usable": true,
+      "deleted": false,
+      "updated_at": "2026-09-02T08:56:18+07:00"
+    }
+  ],
+  "page": {
+    "limit": 5,
+    "next_cursor": null
+  },
+  "sync": {
+    "server_time": "2026-10-30T20:32:08+07:00",
+    "updated_since": "2000-01-01T00:00:00+07:00",
+    "effective_since": "1999-12-31T17:00:00+07:00",
+    "lookback_hours": 7
+  }
+}

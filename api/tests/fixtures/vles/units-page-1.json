@@ -1,0 +1,221 @@
+{
+  "data": [
+    {
+      "id": 1647,
+      "project_id": 5,
+      "project_code": "ghc",
+      "project_name": "Gran Harmoni Cibitung",
+      "company_id": 5,
+      "company_code": "VKP",
+      "company_name": "PT. Vista Karya Propertindo",
+      "area_id": 5,
+      "area_name": "Gran Harmoni Cibitung",
+      "unit_number": "D1/42",
+      "block": "D1",
+      "unit": "42",
+      "house_type_id": 99,
+      "house_type_name": "TYPE 32/60",
+      "land_size": 60,
+      "building_size": 32,
+      "business_group": 1,
+      "ready": 1,
+      "stage": 14,
+      "stage_label": "Akad",
+      "marketing_stock_id": 39728,
+      "price_list_id": 1028,
+      "price_list_number": "PL-KOM/GHC/2025/001",
+      "price_list_name": "GHC KOM D1-42 SUDAH AKAD",
+      "period_from": "2024-04-19",
+      "period_to": "2024-12-31",
+      "selling_price": 236400000,
+      "booking_fee_vpro": 0,
+      "marketing_stock_stage": {
+        "code": 1,
+        "label": "Siap jual"
+      },
+      "is_available_for_sale": false,
+      "price_list_in_period": false,
+      "legality": {
+        "code": 1,
+        "label": "Ya"
+      },
+      "is_special": false,
+      "facing": {
+        "id": 1,
+        "name": "Timur"
+      },
+      "strategic_position": {
+        "id": 122,
+        "name": "STRATEGIS 5JT",
+        "fixed_cost": 5000000
+      },
+      "allocation": {
+        "id": 8,
+        "name": "Rumah Komersil"
+      },
+      "land_over_parent_unit_id": null,
+      "land_over_size": 0,
+      "land_over_nonsert_size": null,
+      "electric_power": 1300,
+      "building_class": {
+        "code": 2,
+        "label": "Real Estate (RE)"
+      },
+      "sales_category": "komersil",
+      "business_group_label": "Vista",
+      "active_transaction_id": null,
+      "stage_changed_at": null,
+      "deleted": false,
+      "updated_at": "2026-01-29T16:34:38+07:00",
+      "changed_at": "2026-01-29T16:34:38+07:00"
+    },
+    {
+      "id": 2038,
+      "project_id": 5,
+      "project_code": "ghc",
+      "project_name": "Gran Harmoni Cibitung",
+      "company_id": 5,
+      "company_code": "VKP",
+      "company_name": "PT. Vista Karya Propertindo",
+      "area_id": 5,
+      "area_name": "Gran Harmoni Cibitung",
+      "unit_number": "E4/12",
+      "block": "E4",
+      "unit": "12",
+      "house_type_id": 102,
+      "house_type_name": "TYPE 32/90",
+      "land_size": 60,
+      "building_size": 32,
+      "business_group": 1,
+      "ready": 1,
+      "stage": 14,
+      "stage_label": "Akad",
+      "marketing_stock_id": 39114,
+      "price_list_id": 987,
+      "price_list_number": "PL-KOM/GHC/2025/001",
+      "price_list_name": "GHC KOM E4(12,24), E6-24 SUDAH AKAD",
+      "period_from": "2024-02-20",
+      "period_to": "2024-05-31",
+      "selling_price": 220400000,
+      "booking_fee_vpro": 0,
+      "marketing_stock_stage": {
+        "code": 1,
+        "label": "Siap jual"
+      },
+      "is_available_for_sale": false,
+      "price_list_in_period": false,
+      "legality": {
+        "code": 1,
+        "label": "Ya"
+      },
+      "is_special": false,
+      "facing": {
+        "id": 3,
+        "name": "Selatan"
+      },
+      "strategic_position": {
+        "id": 27,
+        "name": "TIdak Ada",
+        "fixed_cost": 0
+      },
+      "allocation": {
+        "id": 8,
+        "name": "Rumah Komersil"
+      },
+      "land_over_parent_unit_id": null,
+      "land_over_size": 30,
+      "land_over_nonsert_size": null,
+      "electric_power": 1300,
+      "building_class": {
+        "code": 2,
+        "label": "Real Estate (RE)"
+      },
+      "sales_category": "komersil",
+      "business_group_label": "Vista",
+      "active_transaction_id": null,
+      "stage_changed_at": null,
+      "deleted": false,
+      "updated_at": "2026-01-29T16:34:38+07:00",
+      "changed_at": "2026-01-29T16:34:38+07:00"
+    },
+    {
+      "id": 2072,
+      "project_id": 5,
+      "project_code": "ghc",
+      "project_name": "Gran Harmoni Cibitung",
+      "company_id": 5,
+      "company_code": "VKP",
+      "company_name": "PT. Vista Karya Propertindo",
+      "area_id": 5,
+      "area_name": "Gran Harmoni Cibitung",
+      "unit_number": "E6/01",
+      "block": "E6",
+      "unit": "01",
+      "house_type_id": 102,
+      "house_type_name": "TYPE 32/90",
+      "land_size": 60,
+      "building_size": 32,
+      "business_group": 1,
+      "ready": 1,
+      "stage": 14,
+      "stage_label": "Akad",
+      "marketing_stock_id": 39208,
+      "price_list_id": 992,
+      "price_list_number": "PL-KOM/GHC/2025/001",
+      "price_list_name": "GHC KOM E5-12, E6-1 SUDAH AKAD",
+      "period_from": "2024-02-20",
+      "period_to": "2024-05-31",
+      "selling_price": 222600000,
+      "booking_fee_vpro": 0,
+      "marketing_stock_stage": {
+        "code": 1,
+        "label": "Siap jual"
+      },
+      "is_available_for_sale": false,
+      "price_list_in_period": false,
+      "legality": {
+        "code": 1,
+        "label": "Ya"
+      },
+      "is_special": false,
+      "facing": {
+        "id": 3,
+        "name": "Selatan"
+      },
+      "strategic_position": {
+        "id": 27,
+        "name": "TIdak Ada",
+        "fixed_cost": 0
+      },
+      "allocation": {
+        "id": 8,
+        "name": "Rumah Komersil"
+      },
+      "land_over_parent_unit_id": null,
+      "land_over_size": 30,
+      "land_over_nonsert_size": null,
+      "electric_power": 1300,
+      "building_class": {
+        "code": 2,
+        "label": "Real Estate (RE)"
+      },
+      "sales_category": "komersil",
+      "business_group_label": "Vista",
+      "active_transaction_id": null,
+      "stage_changed_at": null,
+      "deleted": false,
+      "updated_at": "2026-01-29T16:34:38+07:00",
+      "changed_at": "2026-01-29T16:34:38+07:00"
+    }
+  ],
+  "page": {
+    "limit": 3,
+    "next_cursor": "MjAyNi0wMS0yOSAxNjozNDozOHwyMDcy"
+  },
+  "sync": {
+    "server_time": "2026-10-30T20:32:01+07:00",
+    "updated_since": "2000-01-01T00:00:00+07:00",
+    "effective_since": "1999-12-31T17:00:00+07:00",
+    "lookback_hours": 7
+  }
+}

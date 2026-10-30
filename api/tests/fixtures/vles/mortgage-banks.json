@@ -1,0 +1,94 @@
+{
+  "data": [
+    {
+      "id": 38,
+      "project_id": 5,
+      "bank": {
+        "id": 2,
+        "name": "BTN"
+      },
+      "branch_name": "BTN TAMBUN",
+      "program_name": null,
+      "fixed_rate_percent": null,
+      "fixed_rate_years": null,
+      "min_dp_percent": null,
+      "max_tenor_months": null,
+      "deleted": false,
+      "updated_at": "2024-07-05T10:56:40+07:00"
+    },
+    {
+      "id": 62,
+      "project_id": 5,
+      "bank": {
+        "id": 1,
+        "name": "BCA"
+      },
+      "branch_name": "BCA BOGOR",
+      "program_name": null,
+      "fixed_rate_percent": null,
+      "fixed_rate_years": null,
+      "min_dp_percent": null,
+      "max_tenor_months": null,
+      "deleted": false,
+      "updated_at": "2025-04-11T06:33:05+07:00"
+    },
+    {
+      "id": 61,
+      "project_id": 5,
+      "bank": {
+        "id": 4,
+        "name": "BJB"
+      },
+      "branch_name": "BJB DEPOK",
+      "program_name": null,
+      "fixed_rate_percent": null,
+      "fixed_rate_years": null,
+      "min_dp_percent": null,
+      "max_tenor_months": null,
+      "deleted": false,
+      "updated_at": "2025-04-11T06:33:13+07:00"
+    },
+    {
+      "id": 60,
+      "project_id": 5,
+      "bank": {
+        "id": 2,
+        "name": "BTN"
+      },
+      "branch_name": "BTN CAB. BOGOR",
+      "program_name": null,
+      "fixed_rate_percent": null,
+      "fixed_rate_years": null,
+      "min_dp_percent": null,
+      "max_tenor_months": null,
+      "deleted": false,
+      "updated_at": "2025-04-11T13:04:28+07:00"
+    },
+    {
+      "id": 63,
+      "project_id": 5,
+      "bank": {
+        "id": 1,
+        "name": "BCA"
+      },
+      "branch_name": "BCA PUSAT",
+      "program_name": null,
+      "fixed_rate_percent": null,
+      "fixed_rate_years": null,
+      "min_dp_percent": null,
+      "max_tenor_months": null,
+      "deleted": false,
+      "updated_at": "2025-04-11T13:05:51+07:00"
+    }
+  ],
+  "page": {
+    "limit": 5,
+    "next_cursor": "MjAyNS0wNC0xMSAxMzowNTo1MXw2Mw"
+  },
+  "sync": {
+    "server_time": "2026-10-30T20:32:09+07:00",
+    "updated_since": "2000-01-01T00:00:00+07:00",
+    "effective_since": "1999-12-31T17:00:00+07:00",
+    "lookback_hours": 7
+  }
+}

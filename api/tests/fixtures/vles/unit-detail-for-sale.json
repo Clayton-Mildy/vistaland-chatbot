@@ -1,0 +1,132 @@
+{
+  "data": {
+    "id": 1941,
+    "project_id": 5,
+    "area_id": 5,
+    "area_name": "Gran Harmoni Cibitung",
+    "unit_number": "E1/03",
+    "block": "E1",
+    "unit": "03",
+    "house_type_id": 32,
+    "house_type_name": "TYPE 39/72",
+    "land_size": 72,
+    "building_size": 39,
+    "stage": 2,
+    "stage_label": "Marketing Stock",
+    "marketing_stock_stage": {
+      "code": 1,
+      "label": "Siap jual"
+    },
+    "is_available_for_sale": true,
+    "selling_price": 398192200,
+    "price_list_in_period": true,
+    "facing": {
+      "id": 5,
+      "name": "Barat"
+    },
+    "strategic_position": {
+      "id": 27,
+      "name": "TIdak Ada",
+      "fixed_cost": 0
+    },
+    "sales_category": "komersil",
+    "business_group_label": "Vista",
+    "ready": 1,
+    "deleted": false,
+    "updated_at": "2026-10-29T23:00:04+07:00",
+    "project_code": "ghc",
+    "project_name": "Gran Harmoni Cibitung",
+    "company_id": 5,
+    "company_code": "VKP",
+    "company_name": "PT. Vista Karya Propertindo",
+    "business_group": 1,
+    "marketing_stock_id": 50216,
+    "price_list_id": 1903,
+    "price_list_number": "PL-KOM/GHC/2026/001",
+    "price_list_name": "GHC KOM E1(3-4,6-12A), F1(6-10) PPN 0% tambah cara bayar",
+    "period_from": "2025-08-25",
+    "period_to": "2026-12-31",
+    "booking_fee_vpro": 0,
+    "legality": {
+      "code": 1,
+      "label": "Ya"
+    },
+    "is_special": false,
+    "allocation": {
+      "id": 8,
+      "name": "Rumah Komersil"
+    },
+    "land_over_parent_unit_id": null,
+    "land_over_size": 0,
+    "land_over_nonsert_size": null,
+    "electric_power": 1200,
+    "building_class": {
+      "code": 2,
+      "label": "Real Estate (RE)"
+    },
+    "active_transaction_id": null,
+    "stage_changed_at": null
+  },
+  "schemes": [
+    {
+      "id": 9739,
+      "name": "KPR 95% PPN 0%",
+      "selling_price": 398192200,
+      "booking_fee": null,
+      "deposit": 0,
+      "ppn": 0,
+      "alias_name": "KPR 95% PPN 0%",
+      "scheme_type": null,
+      "ppn_percent": 0,
+      "kpr_bank_id": null
+    },
+    {
+      "id": 9740,
+      "name": "CASH KERAS PPN 0%",
+      "selling_price": 398192200,
+      "booking_fee": null,
+      "deposit": 0,
+      "ppn": 0,
+      "alias_name": "CASH KERAS PPN 0%",
+      "scheme_type": null,
+      "ppn_percent": 0,
+      "kpr_bank_id": null
+    },
+    {
+      "id": 9741,
+      "name": "CASH BERTAHAP 3X PPN 0%",
+      "selling_price": 398192200,
+      "booking_fee": null,
+      "deposit": 0,
+      "ppn": 0,
+      "alias_name": "CASH BERTAHAP 3X PPN 0%",
+      "scheme_type": null,
+      "ppn_percent": 0,
+      "kpr_bank_id": null
+    },
+    {
+      "id": 9742,
+      "name": "CASH 6X BF 3JT PPN 0%",
+      "selling_price": 410137966,
+      "booking_fee": null,
+      "deposit": 0,
+      "ppn": 0,
+      "alias_name": "CASH 6X BF 3JT PPN 0%",
+      "scheme_type": null,
+      "ppn_percent": 0,
+      "kpr_bank_id": null
+    },
+    {
+      "id": 9743,
+      "name": "CASH 9X BF 3JT PPN 0%",
+      "selling_price": 422083732,
+      "booking_fee": null,
+      "deposit": 0,
+      "ppn": 0,
+      "alias_name": "CASH 9X BF 3JT PPN 0%",
+      "scheme_type": null,
+      "ppn_percent": 0,
+      "kpr_bank_id": null
+    }
+  ]
+}

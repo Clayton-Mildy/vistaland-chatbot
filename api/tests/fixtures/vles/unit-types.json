@@ -1,0 +1,94 @@
+{
+  "data": [
+    {
+      "id": 243,
+      "project_id": 5,
+      "name": "TABIH",
+      "land_size": 0,
+      "building_size": 0,
+      "electric_power": 1300,
+      "building_class": {
+        "code": 2,
+        "label": "Real Estate (RE)"
+      },
+      "sales_category": "komersil",
+      "color_siteplan": "#022930",
+      "deleted": false,
+      "updated_at": "2024-11-11T09:17:32+07:00"
+    },
+    {
+      "id": 99,
+      "project_id": 5,
+      "name": "TYPE 32/60",
+      "land_size": 60,
+      "building_size": 32,
+      "electric_power": 1300,
+      "building_class": {
+        "code": 2,
+        "label": "Real Estate (RE)"
+      },
+      "sales_category": "komersil",
+      "color_siteplan": "#ffab4dff",
+      "deleted": false,
+      "updated_at": "2025-04-07T10:38:46+07:00"
+    },
+    {
+      "id": 102,
+      "project_id": 5,
+      "name": "TYPE 32/90",
+      "land_size": 60,
+      "building_size": 32,
+      "electric_power": 1300,
+      "building_class": {
+        "code": 2,
+        "label": "Real Estate (RE)"
+      },
+      "sales_category": "komersil",
+      "color_siteplan": "#ffab4dff",
+      "deleted": false,
+      "updated_at": "2025-04-07T10:38:46+07:00"
+    },
+    {
+      "id": 103,
+      "project_id": 5,
+      "name": "TYPE 32/107",
+      "land_size": 60,
+      "building_size": 32,
+      "electric_power": 1300,
+      "building_class": {
+        "code": 2,
+        "label": "Real Estate (RE)"
+      },
+      "sales_category": "komersil",
+      "color_siteplan": "#ffab4dff",
+      "deleted": false,
+      "updated_at": "2025-04-07T10:38:46+07:00"
+    },
+    {
+      "id": 104,
+      "project_id": 5,
+      "name": "TYPE 32/87",
+      "land_size": 60,
+      "building_size": 32,
+      "electric_power": 1300,
+      "building_class": {
+        "code": 2,
+        "label": "Real Estate (RE)"
+      },
+      "sales_category": "komersil",
+      "color_siteplan": "#ffab4dff",
+      "deleted": false,
+      "updated_at": "2025-04-07T10:38:46+07:00"
+    }
+  ],
+  "page": {
+    "limit": 5,
+    "next_cursor": "MjAyNS0wNC0wNyAxMDozODo0NnwxMDQ"
+  },
+  "sync": {
+    "server_time": "2026-10-30T20:32:07+07:00",
+    "updated_since": "2000-01-01T00:00:00+07:00",
+    "effective_since": "1999-12-31T17:00:00+07:00",
+    "lookback_hours": 7
+  }
+}
