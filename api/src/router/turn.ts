@@ -86,6 +86,11 @@ export async function runTurn(conversationId: string, deps: TurnDeps): Promise<T
   if (!conv) return { kind: 'skipped', sent: 0 };
   const app = await getAppSettings();
   if (!app.aiEnabled || !conv.aiEnabled || isUnderTakeover(conv, deps.now())) return { kind: 'skipped', sent: 0 };
+  if (deps.staffSync && (await deps.staffSync(conversationId))) {
+    // A human answered from ChakraHQ's inbox: Moni must not talk over them.
+    await setTakeover(conversationId, new Date(deps.now().getTime() + (await takeoverHours()) * 3_600_000), 'system', 'balasan staf di ChakraHQ');
+    return { kind: 'skipped', sent: 0 };
+  }
   const contact = await getContact(conv.contactId);
   const lead = await getLeadByContact(conv.contactId);
   if (!contact || !lead) return { kind: 'skipped', sent: 0 };

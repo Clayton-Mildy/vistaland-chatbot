@@ -9,6 +9,7 @@ import { chakraTransport } from './router/transport.js';
 import { runTurn } from './router/turn.js';
 import { handleInbound } from './router/inbound.js';
 import { getConversation } from './leads/repository.js';
+import { syncStaffReplies } from './chakra/staffSync.js';
 
 const config = getConfig();
 const vles = getVlesClient();
@@ -34,6 +35,7 @@ const debouncer = createDebouncer({
       vles,
       now: () => new Date(),
       settings: { model: config.MONI_MODEL, effort: config.MONI_EFFORT },
+      staffSync: config.CHAKRA_ACCESS_TOKEN ? (id) => syncStaffReplies(id, { client: chakra, now: () => new Date() }) : undefined,
     });
     const detail = out.result?.kind === 'failed' ? ` (${out.result.reason}: ${out.result.detail})` : '';
     console.log(`[moni] ${conversationId}: ${out.kind}, ${out.sent} sent${detail}`);

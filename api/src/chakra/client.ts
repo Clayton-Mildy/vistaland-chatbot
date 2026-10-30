@@ -5,9 +5,23 @@ export type ChakraSend = { waMessageId: string | null };
 
 export type ChakraMedia = { kind: 'image' | 'video' | 'document'; link: string; caption?: string; filename?: string };
 
+/** A message in ChakraHQ's chat history. externalId is the wamid; timestamps are epoch ms. */
+export type ChakraChatMessage = {
+  id: string;
+  externalId?: string | null;
+  direction?: string | null;
+  text?: string | null;
+  dataType?: string | null;
+  timestamp?: number | null;
+  createdAt?: number | null;
+};
+
 export type ChakraClient = {
   sendText(phoneNumberId: string, to: string, body: string): Promise<ChakraSend>;
   sendMedia(phoneNumberId: string, to: string, m: ChakraMedia): Promise<ChakraSend>;
+  // Chat history. The webhook never carries replies staff type in ChakraHQ's inbox; these do.
+  findChatId(waPhone: string): Promise<string | null>;
+  listChatMessages(chatId: string, limit: number): Promise<ChakraChatMessage[]>;
 };
 
 export class ChakraError extends Error {
@@ -64,7 +78,35 @@ export function createChakraClient(cfg: {
     }
   }
 
+  // /v1/ext/chat sits outside the plugin pass-through prefix: same host and token, different path.
+  async function list<T>(path: string, body: object): Promise<T[]> {
+    const res = await doFetch(`${base}${path}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${cfg.accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) throw new ChakraError(res.status, await res.text().catch(() => ''));
+    return ((await res.json()) as { _data?: T[] })._data ?? [];
+  }
+
+  // Chat ids never change, so a found one is kept for the life of the process.
+  const chatIds = new Map<string, string>();
+  const digits = (v: string | null | undefined) => (v ?? '').replace(/\D/g, '');
+
   return {
+    async findChatId(waPhone) {
+      const wa = digits(waPhone);
+      const cached = chatIds.get(wa);
+      if (cached) return cached;
+      // The customer has just written, so their chat is near the top of the newest-updated list.
+      type Chat = { id: string; provider?: string | null; primaryContactHandle?: { value?: string | null } | null };
+      const chats = await list<Chat>('/v1/ext/chat', { orderField: 'updatedAt', limit: 100, page: 1 });
+      const hit = chats.find((c) => (c.provider ?? 'WHATSAPP') === 'WHATSAPP' && digits(c.primaryContactHandle?.value) === wa);
+      if (hit) chatIds.set(wa, hit.id);
+      return hit?.id ?? null;
+    },
+    listChatMessages: (chatId, limit) => list<ChakraChatMessage>(`/v1/ext/chat/${chatId}/message`, { limit, page: 1 }),
     sendText: (phoneNumberId, to, body) =>
       post(phoneNumberId, { messaging_product: 'whatsapp', to, type: 'text', text: { body } }),
     sendMedia: (phoneNumberId, to, m) => {

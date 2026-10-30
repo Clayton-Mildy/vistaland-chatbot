@@ -140,6 +140,7 @@ export async function insertOutbound(
     mediaUrl?: string | null;
     waMessageId: string | null;
     status: 'sent' | 'failed' | 'recorded';
+    createdAt?: Date;
   }
 ): Promise<{ id: string }> {
   const [row] = await getDb()
@@ -154,6 +155,7 @@ export async function insertOutbound(
       body: m.body,
       mediaUrl: m.mediaUrl ?? null,
       status: m.status,
+      ...(m.createdAt ? { createdAt: m.createdAt } : {}),
     })
     .returning({ id: messages.id });
   if (!row) throw new Error('Failed to store outbound message');
