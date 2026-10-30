@@ -1,4 +1,4 @@
-import { asc } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 import { getDb } from '../db/client.js';
 import { projects } from '../db/schema/index.js';
 
@@ -33,4 +33,36 @@ export async function upsertProjectBySlug(input: ProjectSeed): Promise<Project> 
     .returning();
   if (!row) throw new Error(`Failed to upsert project ${input.slug}`);
   return row;
+}
+
+export async function getProject(id: number): Promise<Project | null> {
+  const [row] = await getDb().select().from(projects).where(eq(projects.id, id)).limit(1);
+  return row ?? null;
+}
+
+export type ProjectPatch = Partial<
+  Pick<
+    Project,
+    | 'displayName'
+    | 'personaTeamName'
+    | 'locationLabel'
+    | 'mapsUrl'
+    | 'accessNotes'
+    | 'galleryHours'
+    | 'visitMinutes'
+    | 'sameDayMinNoticeMinutes'
+    | 'vlesAreaIds'
+    | 'subsidiNotes'
+    | 'active'
+  >
+>;
+
+export async function updateProject(id: number, patch: ProjectPatch): Promise<Project | null> {
+  if (Object.keys(patch).length === 0) return getProject(id);
+  const [row] = await getDb()
+    .update(projects)
+    .set({ ...patch, updatedAt: new Date() })
+    .where(eq(projects.id, id))
+    .returning();
+  return row ?? null;
 }

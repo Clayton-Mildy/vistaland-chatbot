@@ -24,6 +24,8 @@ services:
       NODE_ENV: production
       PORT: "50060"
       MIGRATIONS_DIR: ./migrations
+      MEDIA_DIR: /app/media
+      PUBLIC_BASE_URL: https://${DOMAIN:?set DOMAIN}
       DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/vistaland
       API_SECRET_KEY: ${API_SECRET_KEY:?set API_SECRET_KEY}
       VLES_API_KEY: ${VLES_API_KEY:-}
@@ -31,6 +33,8 @@ services:
       SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-}
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
       SEED_ADMIN_NAME: ${SEED_ADMIN_NAME:-Admin}
+    volumes:
+      - media:/app/media
     depends_on:
       postgres:
         condition: service_healthy
@@ -68,5 +72,6 @@ services:
 
 volumes:
   pgdata:
+  media:
   caddy_data:
   caddy_config:

@@ -14,6 +14,8 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/dist-scripts ./dist-scripts
 COPY --from=build /app/src/db/migrations ./migrations
+# A named volume copies this directory's owner on first use, so uploads stay writable as node.
+RUN mkdir -p /app/media && chown node:node /app/media
 USER node
 EXPOSE 50060
 # A failed migration stops the container instead of serving a half-migrated database.

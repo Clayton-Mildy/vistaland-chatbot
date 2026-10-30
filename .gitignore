@@ -8,3 +8,5 @@ deploy/.env
 *.log
 .superpowers
 *.tsbuildinfo
+api/tests/.media
+api/media

@@ -14,6 +14,9 @@ const envSchema = z.object({
   VLES_SYNC_INTERVAL_MS: z.coerce.number().int().min(0).default(900_000),
   // VLES allows 120 requests/minute per key; stay under it.
   VLES_MAX_REQ_PER_MIN: z.coerce.number().int().min(1).max(120).default(100),
+  // Public origin WhatsApp fetches materials from (Caddy routes /media/* to the API).
+  PUBLIC_BASE_URL: z.string().url().default('http://localhost:50060'),
+  MEDIA_DIR: z.string().default('./media'),
 });
 
 export type Config = z.infer<typeof envSchema>;
