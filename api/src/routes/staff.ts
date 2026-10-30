@@ -7,6 +7,7 @@ import {
   createStaff,
   findStaffByEmail,
   findStaffById,
+  getPublicStaff,
   listStaff,
   setStaffPassword,
   updateStaff,
@@ -47,6 +48,15 @@ export async function staffRoutes(app: FastifyInstance): Promise<void> {
 
   app.get('/api/v1/staff', { preHandler: [requireApiSecret] }, async (_request, reply) => {
     return reply.send({ data: await listStaff(), error: null });
+  });
+
+  // The dashboard re-checks a signed-in account here, so deactivation ends sessions promptly.
+  app.get('/api/v1/staff/:id', { preHandler: [requireApiSecret] }, async (request, reply) => {
+    const params = IdParams.safeParse(request.params);
+    if (!params.success) return reply.code(404).send({ data: null, error: 'NOT_FOUND' });
+    const staff = await getPublicStaff(params.data.id);
+    if (!staff) return reply.code(404).send({ data: null, error: 'NOT_FOUND' });
+    return reply.send({ data: staff, error: null });
   });
 
   app.post('/api/v1/staff', { preHandler: [requireApiSecret] }, async (request, reply) => {

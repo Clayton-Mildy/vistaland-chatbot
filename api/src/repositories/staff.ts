@@ -36,6 +36,11 @@ export async function findStaffById(id: string): Promise<StaffRow | null> {
   return row ?? null;
 }
 
+export async function getPublicStaff(id: string): Promise<PublicStaff | null> {
+  const row = await findStaffById(id);
+  return row ? toPublic(row) : null;
+}
+
 export async function listStaff(): Promise<PublicStaff[]> {
   const rows = await getDb().select().from(staffUsers).orderBy(asc(staffUsers.createdAt));
   return rows.map(toPublic);

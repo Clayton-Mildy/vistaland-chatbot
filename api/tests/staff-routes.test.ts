@@ -60,3 +60,14 @@ it('PATCH answers 404 for an unknown staff id', async () => {
   const res = await buildApp().inject({ method: 'PATCH', url: '/api/v1/staff/00000000-0000-0000-0000-000000000000', headers: auth, payload: { isActive: false } });
   expect(res.statusCode).toBe(404);
 });
+
+it('GET /api/v1/staff/:id returns the account without its hash, 404 when unknown', async () => {
+  const app = buildApp();
+  const s = await createStaff({ email: 'c@vista.id', password: 'correct-horse-1', displayName: 'C', role: 'sales' });
+  const res = await app.inject({ method: 'GET', url: `/api/v1/staff/${s.id}`, headers: auth });
+  expect(res.statusCode).toBe(200);
+  expect(res.json().data).toMatchObject({ id: s.id, role: 'sales', isActive: true });
+  expect(JSON.stringify(res.json())).not.toMatch(/hash/i);
+  const missing = await app.inject({ method: 'GET', url: '/api/v1/staff/00000000-0000-0000-0000-000000000000', headers: auth });
+  expect(missing.statusCode).toBe(404);
+});

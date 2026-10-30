@@ -21,5 +21,7 @@ declare module "next-auth/jwt" {
   interface JWT {
     id?: string;
     role?: string;
+    // When the account was last re-checked against the API (lib/sessionCheck.ts).
+    checkedAt?: number;
   }
 }
