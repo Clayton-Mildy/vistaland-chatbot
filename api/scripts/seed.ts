@@ -1,5 +1,6 @@
 /**
- * Idempotent seed: the projects Moni sells and their VLES mapping. Safe to re-run.
+ * Idempotent seed: the projects Moni sells and their VLES mapping, then the first dashboard admin
+ * (only while no staff exist). Safe to re-run.
  *
  *   npm run db:seed                 (dev, from api/)
  *   node dist-scripts/seed.js       (container)
@@ -11,6 +12,7 @@
 import 'dotenv/config';
 import { closeDb } from '../src/db/client.js';
 import { upsertProjectBySlug, type ProjectSeed } from '../src/repositories/projects.js';
+import { countStaff, createStaff } from '../src/repositories/staff.js';
 
 const PROJECTS: ProjectSeed[] = [
   { slug: 'zetira', displayName: 'Zetira', personaTeamName: 'tim Zetira', locationLabel: 'Cibitung', vlesProjectId: 5, vlesAreaIds: [37] },
@@ -21,6 +23,25 @@ const PROJECTS: ProjectSeed[] = [
 for (const p of PROJECTS) {
   const row = await upsertProjectBySlug(p);
   console.log(`project ${row.id} ${row.slug} -> VLES project ${row.vlesProjectId}, areas [${row.vlesAreaIds.join(', ')}]`);
+}
+
+if ((await countStaff()) > 0) {
+  console.log('Admin already exists, skipped');
+} else {
+  const email = process.env['SEED_ADMIN_EMAIL'] ?? '';
+  const password = process.env['SEED_ADMIN_PASSWORD'] ?? '';
+  if (!email || password.length < 12) {
+    console.error('SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD (min 12 chars) are required for the first admin');
+    await closeDb();
+    process.exit(1);
+  }
+  const admin = await createStaff({
+    email,
+    password,
+    displayName: process.env['SEED_ADMIN_NAME'] || 'Admin',
+    role: 'admin',
+  });
+  console.log(`Admin created: ${admin.email}`);
 }
 
 await closeDb();
