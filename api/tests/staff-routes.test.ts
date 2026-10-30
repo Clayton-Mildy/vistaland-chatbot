@@ -41,3 +41,22 @@ it('rejects a role other than admin or sales', async () => {
   const res = await buildApp().inject({ method: 'POST', url: '/api/v1/staff', headers: auth, payload: { email: 'b@vista.id', password: 'correct-horse-1', displayName: 'B', role: 'agent' } });
   expect(res.statusCode).toBe(400);
 });
+
+it('refuses to deactivate or demote the last active admin', async () => {
+  const app = buildApp();
+  const a = await createStaff({ email: 'a@vista.id', password: 'correct-horse-1', displayName: 'A', role: 'admin' });
+  const off = await app.inject({ method: 'PATCH', url: `/api/v1/staff/${a.id}`, headers: auth, payload: { isActive: false } });
+  expect(off.statusCode).toBe(409);
+  expect(off.json().error).toBe('LAST_ADMIN');
+  const demote = await app.inject({ method: 'PATCH', url: `/api/v1/staff/${a.id}`, headers: auth, payload: { role: 'sales' } });
+  expect(demote.statusCode).toBe(409);
+  await createStaff({ email: 'b@vista.id', password: 'correct-horse-1', displayName: 'B', role: 'admin' });
+  const ok = await app.inject({ method: 'PATCH', url: `/api/v1/staff/${a.id}`, headers: auth, payload: { isActive: false } });
+  expect(ok.statusCode).toBe(200);
+  expect(ok.json().data.isActive).toBe(false);
+});
+
+it('PATCH answers 404 for an unknown staff id', async () => {
+  const res = await buildApp().inject({ method: 'PATCH', url: '/api/v1/staff/00000000-0000-0000-0000-000000000000', headers: auth, payload: { isActive: false } });
+  expect(res.statusCode).toBe(404);
+});

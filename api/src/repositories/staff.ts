@@ -1,4 +1,4 @@
-import { asc, count, eq } from 'drizzle-orm';
+import { and, asc, count, eq } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 import { getDb } from '../db/client.js';
 import { staffUsers } from '../db/schema/index.js';
@@ -43,6 +43,14 @@ export async function listStaff(): Promise<PublicStaff[]> {
 
 export async function countStaff(): Promise<number> {
   const [row] = await getDb().select({ n: count() }).from(staffUsers);
+  return row?.n ?? 0;
+}
+
+export async function countActiveAdmins(): Promise<number> {
+  const [row] = await getDb()
+    .select({ n: count() })
+    .from(staffUsers)
+    .where(and(eq(staffUsers.role, 'admin'), eq(staffUsers.isActive, true)));
   return row?.n ?? 0;
 }
 

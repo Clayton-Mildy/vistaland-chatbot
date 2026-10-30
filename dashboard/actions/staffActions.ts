@@ -10,6 +10,7 @@ function message(err: unknown): string {
     if (err.code === "EMAIL_TAKEN") return "Email sudah dipakai.";
     if (err.code === "VALIDATION_ERROR") return "Data belum lengkap.";
     if (err.code === "NOT_FOUND") return "Staf tidak ditemukan.";
+    if (err.code === "LAST_ADMIN") return "Harus ada minimal satu admin aktif.";
   }
   return "Terjadi kesalahan. Silakan coba lagi.";
 }

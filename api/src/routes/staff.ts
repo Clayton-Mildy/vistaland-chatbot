@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { requireApiSecret } from '../middleware/apiSecret.js';
 import {
+  countActiveAdmins,
   createStaff,
   findStaffByEmail,
   findStaffById,
@@ -63,8 +64,15 @@ export async function staffRoutes(app: FastifyInstance): Promise<void> {
     const params = IdParams.safeParse(request.params);
     const body = PatchBody.safeParse(request.body);
     if (!params.success || !body.success) return reply.code(400).send({ data: null, error: 'VALIDATION_ERROR' });
-    if (!(await findStaffById(params.data.id))) return reply.code(404).send({ data: null, error: 'NOT_FOUND' });
+    const current = await findStaffById(params.data.id);
+    if (!current) return reply.code(404).send({ data: null, error: 'NOT_FOUND' });
     const { password, ...patch } = body.data;
+    // Deactivating or demoting the last active admin would leave nobody able to manage staff,
+    // and the seed only creates an admin into an empty table.
+    const losesAdmin = patch.isActive === false || (patch.role !== undefined && patch.role !== 'admin');
+    if (current.role === 'admin' && current.isActive && losesAdmin && (await countActiveAdmins()) <= 1) {
+      return reply.code(409).send({ data: null, error: 'LAST_ADMIN' });
+    }
     if (password) await setStaffPassword(params.data.id, password);
     return reply.send({ data: await updateStaff(params.data.id, patch), error: null });
   });
