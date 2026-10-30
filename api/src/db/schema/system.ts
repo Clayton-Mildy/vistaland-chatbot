@@ -1,4 +1,4 @@
-import { pgTable, text, boolean, timestamp, jsonb, uuid, check } from 'drizzle-orm/pg-core';
+import { pgTable, text, boolean, timestamp, jsonb, uuid, check, integer } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
 // ─── app_settings ──────────────────────────────────────────────────────────
@@ -25,3 +25,13 @@ export const staffUsers = pgTable(
   },
   (t) => [check('staff_users_role_check', sql`${t.role} in ('admin', 'sales')`)]
 );
+
+// ─── prompt_versions ───────────────────────────────────────────────────────
+// The FLOW MONI playbook as staff edit it in Settings; the newest row is the one in use.
+
+export const promptVersions = pgTable('prompt_versions', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  text: text('text').notNull(),
+  createdBy: uuid('created_by').references(() => staffUsers.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
