@@ -1,6 +1,8 @@
 import { readFileSync } from 'fs';
 import { VlesError, type VlesClient } from '../../src/vles/client.js';
-import type { VlesListEndpoint, VlesPage, VlesUnitDetail } from '../../src/vles/types.js';
+import type { VlesListEndpoint, VlesPage, VlesUnitDetail, VlesUnitRaw } from '../../src/vles/types.js';
+import { upsertPage } from '../../src/vles/repository.js';
+import { upsertProjectBySlug } from '../../src/repositories/projects.js';
 
 /** Parsed JSON of a recorded VLES response in tests/fixtures/vles/. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -58,4 +60,20 @@ export function fakeClient(
       return script.units_detail?.[id] ?? null;
     },
   };
+}
+
+/** A unit row shaped like the recorded fixture's first unit, with overrides. */
+export function unit(overrides: Partial<VlesUnitRaw>): VlesUnitRaw {
+  return { ...fixture('units-page-1.json').data[0], deleted: false, ...overrides };
+}
+
+export async function seedUnits(units: VlesUnitRaw[]): Promise<void> {
+  await upsertPage('units', units, new Date());
+}
+
+/** The three projects scripts/seed.ts creates. */
+export async function seedProjects(): Promise<void> {
+  await upsertProjectBySlug({ slug: 'zetira', displayName: 'Zetira', personaTeamName: 'tim Zetira', locationLabel: 'Cibitung', vlesProjectId: 5, vlesAreaIds: [37] });
+  await upsertProjectBySlug({ slug: 'gran-harmoni-cibitung', displayName: 'Gran Harmoni Cibitung', personaTeamName: 'tim Gran Harmoni Cibitung', locationLabel: 'Cibitung', vlesProjectId: 5, vlesAreaIds: [5] });
+  await upsertProjectBySlug({ slug: 'grand-harmoni-park', displayName: 'Grand Harmoni Park', personaTeamName: 'tim Grand Harmoni Park', locationLabel: null, vlesProjectId: 25, vlesAreaIds: [25] });
 }

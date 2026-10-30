@@ -1,6 +1,7 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import { staffRoutes } from './routes/staff.js';
 import { vlesRoutes } from './routes/vles.js';
+import { stockRoutes } from './routes/stock.js';
 
 export function buildApp(): FastifyInstance {
   const app = Fastify({
@@ -11,6 +12,7 @@ export function buildApp(): FastifyInstance {
 
   void app.register(staffRoutes);
   void app.register(vlesRoutes);
+  void app.register(stockRoutes);
 
   return app;
 }
