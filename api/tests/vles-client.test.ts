@@ -81,3 +81,15 @@ it('aborts a request that stalls past the timeout and retries it', async () => {
   expect(calls).toBe(3);
   expect(slept).toEqual([2000, 4000]);
 });
+
+it('serializes concurrent callers so spacing holds', async () => {
+  let t = 0;
+  const starts: number[] = [];
+  const fetch = (async (url: string | URL | Request) => {
+    starts.push(t);
+    return json(200, fixture(String(url).includes('/units/') ? 'unit-detail-for-sale.json' : 'promos.json'));
+  }) as typeof globalThis.fetch;
+  const c = opts({ maxRequestsPerMinute: 60, fetch, now: () => t, sleep: async (ms) => { t += ms; } });
+  await Promise.all([c.listPage('promos', { updatedSince: 'x' }), c.listPage('promos', { updatedSince: 'x' }), c.getUnit(1)]);
+  expect(starts).toEqual([0, 1000, 2000]);
+});

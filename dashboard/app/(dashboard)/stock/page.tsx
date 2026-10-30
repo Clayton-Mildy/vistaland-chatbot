@@ -12,7 +12,7 @@ function priceRange(t: TypeStock): string {
 
 function landBuilding(t: TypeStock): string {
   const land =
-    t.landSize === null ? "—" : t.landSizeMax !== null && t.landSizeMax !== t.landSize ? `${t.landSize}–${t.landSizeMax}` : `${t.landSize}`;
+    t.landSizeMin === null ? "—" : t.landSizeMax !== null && t.landSizeMax !== t.landSizeMin ? `${t.landSizeMin}–${t.landSizeMax}` : `${t.landSizeMin}`;
   return `${land}/${t.buildingSize ?? "—"} m²`;
 }
 

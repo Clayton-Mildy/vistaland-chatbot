@@ -58,5 +58,5 @@ it('reports the land size range when units of one type differ', async () => {
     unit({ id: 1, project_id: 5, area_id: 37, house_type_id: 500, land_size: 66, building_size: 33, is_available_for_sale: true, selling_price: 1 }),
     unit({ id: 2, project_id: 5, area_id: 37, house_type_id: 500, land_size: 103, building_size: 33, is_available_for_sale: false, selling_price: null }),
   ]);
-  expect((await zetira()).types[0]).toMatchObject({ landSize: 66, landSizeMax: 103, buildingSize: 33 });
+  expect((await zetira()).types[0]).toMatchObject({ landSizeMin: 66, landSizeMax: 103, buildingSize: 33 });
 });

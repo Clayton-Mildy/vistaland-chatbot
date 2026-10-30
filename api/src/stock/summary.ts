@@ -12,7 +12,7 @@ export type TypeStock = {
   houseTypeName: string;
   salesCategory: string | null;
   // Smallest and largest land size of the type: corner (HOOK) and oversized lots vary.
-  landSize: number | null;
+  landSizeMin: number | null;
   landSizeMax: number | null;
   buildingSize: number | null;
   availableUnits: number;
@@ -109,7 +109,7 @@ export async function getStockSummary(now: Date = new Date()): Promise<StockSumm
           houseTypeId: r.house_type_id,
           houseTypeName: r.house_type_name,
           salesCategory: r.sales_category,
-          landSize: num(r.land_size),
+          landSizeMin: num(r.land_size),
           landSizeMax: num(r.land_size_max),
           buildingSize: num(r.building_size),
           availableUnits: r.available,

@@ -12,7 +12,7 @@ export type TypeStock = {
   houseTypeId: number;
   houseTypeName: string;
   salesCategory: string | null;
-  landSize: number | null;
+  landSizeMin: number | null;
   landSizeMax: number | null;
   buildingSize: number | null;
   availableUnits: number;

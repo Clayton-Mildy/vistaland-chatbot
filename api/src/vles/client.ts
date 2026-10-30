@@ -95,6 +95,15 @@ export function createVlesClient(opts: {
     }
   }
 
+  // One request at a time: the throttle above assumes a single caller, and the live availability
+  // check can run while a sync is paging.
+  let chain: Promise<unknown> = Promise.resolve();
+  function serial<T>(fn: () => Promise<T>): Promise<T> {
+    const run = chain.then(fn, fn);
+    chain = run.catch(() => undefined);
+    return run;
+  }
+
   async function errorFor(label: string, res: Response): Promise<VlesError> {
     let detail: string | undefined;
     try {
@@ -110,14 +119,14 @@ export function createVlesClient(opts: {
     async listPage(endpoint, params) {
       const qs = new URLSearchParams({ updated_since: params.updatedSince, limit: String(params.limit ?? 500) });
       if (params.cursor !== undefined) qs.set('cursor', params.cursor);
-      const res = await get(endpoint, `${baseUrl}/${endpoint}?${qs.toString()}`);
+      const res = await serial(() => get(endpoint, `${baseUrl}/${endpoint}?${qs.toString()}`));
       if (!res.ok) throw await errorFor(endpoint, res);
       return VlesPage.parse(await res.json());
     },
 
     async getUnit(id) {
       const label = `units/${id}`;
-      const res = await get(label, `${baseUrl}/units/${id}`);
+      const res = await serial(() => get(label, `${baseUrl}/units/${id}`));
       if (res.status === 404) return null;
       if (!res.ok) throw await errorFor(label, res);
       return VlesUnitDetail.parse(await res.json());
