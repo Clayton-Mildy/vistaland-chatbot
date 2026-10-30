@@ -11,5 +11,6 @@ export default defineConfig({
     },
     // DB tests truncate shared tables, so files must not run concurrently.
     fileParallelism: false,
+    globalSetup: './tests/setup/migrate.ts',
   },
 });
