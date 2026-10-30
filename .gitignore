@@ -7,3 +7,4 @@ dist-scripts
 deploy/.env
 *.log
 .superpowers
+*.tsbuildinfo
