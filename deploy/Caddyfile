@@ -1,0 +1,14 @@
+# One public origin. Only the WhatsApp webhook, media files and the health check reach the API;
+# /api/v1 is called by the dashboard container over the compose network and is never exposed.
+{$DOMAIN} {
+	encode gzip
+
+	@api path /webhook* /media/* /health
+	handle @api {
+		reverse_proxy api:50060
+	}
+
+	handle {
+		reverse_proxy dashboard:40060
+	}
+}

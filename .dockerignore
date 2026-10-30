@@ -1,0 +1,10 @@
+**/node_modules
+**/.next
+**/dist
+**/dist-scripts
+**/.env
+**/.env.local
+**/*.tsbuildinfo
+deploy/.env
+.git
+.superpowers
