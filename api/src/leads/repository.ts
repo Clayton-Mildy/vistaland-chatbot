@@ -44,6 +44,11 @@ export async function getConversation(id: string): Promise<Conversation | null> 
   return row ?? null;
 }
 
+export async function getConversationByContact(contactId: string): Promise<Conversation | null> {
+  const [row] = await getDb().select().from(conversations).where(eq(conversations.contactId, contactId)).limit(1);
+  return row ?? null;
+}
+
 export async function getLead(id: string): Promise<Lead | null> {
   const [row] = await getDb().select().from(leads).where(eq(leads.id, id)).limit(1);
   return row ?? null;

@@ -30,6 +30,10 @@ const envSchema = z.object({
   ANTHROPIC_API_KEY: z.string().default(''),
   MONI_MODEL: z.string().default('claude-opus-5-5'),
   MONI_EFFORT: z.enum(['low', 'medium', 'high']).default('medium'),
+  // Wait for the customer to pause: this long after the last message, at most TYPING_MAX_WAIT_MS
+  // after the first.
+  TYPING_DEBOUNCE_MS: z.coerce.number().int().min(0).default(8000),
+  TYPING_MAX_WAIT_MS: z.coerce.number().int().min(0).default(30000),
 });
 
 export type Config = z.infer<typeof envSchema>;
