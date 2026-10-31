@@ -9,7 +9,7 @@ it('parses rupiah with precision-based tolerance', () => {
     { raw: 'Rp2.834.123', value: 2_834_123, tolerance: 0.5 },
   ]);
   expect(parseRupiahMentions('tenor 15 tahun, 2 kamar, DP 5%, LT 62 m², 15 menit')).toEqual([]);
-  expect(parseRupiahMentions('Rp1,2 M')[0]).toMatchObject({ value: 1_200_000_000, tolerance: 50_000_000 });
+  expect(parseRupiahMentions('Rp1,2 M')[0]).toMatchObject({ value: 1_200_000_000, tolerance: 24_000_000 });
   expect(parseRupiahMentions('booking fee 500 ribu')[0]).toMatchObject({ value: 500_000, tolerance: 500 });
 });
 
@@ -59,4 +59,22 @@ it('lists every problem at once', () => {
   const r = checkReply('Pasti di-ACC, unit D3/15 Rp999 jt', ev());
   expect(r.ok).toBe(false);
   if (!r.ok) expect(r.problems).toHaveLength(3);
+});
+
+it('reads "jutaan" and "ribuan" as amounts', () => {
+  expect(parseRupiahMentions('cicilannya sekitar 3 jutaan per bulan')[0]).toMatchObject({ value: 3_000_000 });
+  expect(parseRupiahMentions('biayanya ratusan ribuan')).toEqual([]);
+  expect(checkReply('cicilannya sekitar 3 jutaan per bulan', ev({ knownAmounts: [] })).ok).toBe(false);
+});
+
+it('caps the tolerance of round figures at 2% of the amount', () => {
+  expect(checkReply('Harganya Rp1 M', ev({ knownAmounts: [620_000_000] })).ok).toBe(false);
+  expect(checkReply('Cicilannya Rp3 jt', ev({ knownAmounts: [3_400_000] })).ok).toBe(false);
+  expect(checkReply('Cicilannya Rp4 jt lalu', ev({ knownAmounts: [4_042_747] })).ok).toBe(true);
+});
+
+it('recognises "blok X nomor N" as a unit number', () => {
+  expect(checkReply('Unit blok D3 nomor 15 masih tersedia', ev()).ok).toBe(false);
+  expect(checkReply('Unit blok D3 nomor 15 masih tersedia', ev({ verifiedUnitNumbers: ['D3/15'] })).ok).toBe(true);
+  expect(checkReply('Ada di blok E6 no. 1 Kak', ev({ verifiedUnitNumbers: ['E6/01'] })).ok).toBe(true);
 });

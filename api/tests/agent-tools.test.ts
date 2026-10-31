@@ -93,3 +93,17 @@ it('handoff_to_human and opt_out act on the lead', async () => {
   await runTool('opt_out', {}, c);
   expect((await getLead(lead.id))!.stage).toBe('opted_out');
 });
+
+it('an unverified availability check or an empty search is not stock evidence', async () => {
+  const c = ctx();
+  await runTool('check_availability', { project: 'zetira', house_type_id: 500 }, c); // vles null -> NOT_CONFIGURED
+  await runTool('search_units', { project: 'zetira', bedrooms: 9 }, c); // no type has 9 bedrooms
+  expect(c.evidence.toolsCalled.has('check_availability')).toBe(false);
+  expect(c.evidence.toolsCalled.has('search_units')).toBe(false);
+});
+
+it('update_lead makes the customer\'s own budget quotable this turn', async () => {
+  const c = ctx();
+  await runTool('update_lead', { budget_price: 450_000_000, budget_monthly: 3_500_000 }, c);
+  expect(c.evidence.knownAmounts).toEqual(expect.arrayContaining([450_000_000, 3_500_000]));
+});

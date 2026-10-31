@@ -3,15 +3,16 @@
 
 export type RupiahMention = { raw: string; value: number; tolerance: number };
 
+// "3 jutaan" (around 3 million) is the everyday way to say it, so the "-an" forms count too.
 const MULTIPLIERS: [RegExp, number][] = [
-  [/^(rb|ribu)$/i, 1e3],
-  [/^(jt|juta)$/i, 1e6],
-  [/^(M|miliar|milyar)$/i, 1e9],
+  [/^(rb|ribu|ribuan)$/i, 1e3],
+  [/^(jt|juta|jutaan)$/i, 1e6],
+  [/^(M|miliar|milyar|miliaran|milyaran)$/i, 1e9],
 ];
 
 // "M" is case-sensitive on purpose: "62 m" is metres, not miliar.
 const MENTION =
-  /([Rr][Pp]\.?\s?)?(\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d+(?:,\d+)?)(?:\s?([Rr]b|[Rr]ibu|[Jj]t|[Jj]uta|[Mm]iliar|[Mm]ilyar|M)(?![A-Za-z]))?/g;
+  /([Rr][Pp]\.?\s?)?(\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d+(?:,\d+)?)(?:\s?([Rr]b|[Rr]ibu(?:an)?|[Jj]t|[Jj]uta(?:an)?|[Mm]iliar(?:an)?|[Mm]ilyar(?:an)?|M)(?![A-Za-z]))?/g;
 
 export function parseRupiahMentions(text: string): RupiahMention[] {
   const out: RupiahMention[] = [];
@@ -21,8 +22,9 @@ export function parseRupiahMentions(text: string): RupiahMention[] {
     const [whole, fraction = ''] = digits!.replace(/\.(?=\d{3})/g, '').split(',');
     const mult = unit ? (MULTIPLIERS.find(([re]) => re.test(unit))?.[1] ?? 1) : 1;
     const value = Number(`${whole}.${fraction || '0'}`) * mult;
-    // Half of one unit of the last digit written: "465,5 jt" may mean 465,45-465,55 jt.
-    const tolerance = 0.5 * 10 ** -fraction.length * mult;
+    // Half of one unit of the last digit written ("465,5 jt" may mean 465,45-465,55 jt), but never
+    // more than 2% of the amount: "Rp1 M" must not stand for 620 jt.
+    const tolerance = Math.min(0.5 * 10 ** -fraction.length * mult, Math.max(0.5, 0.02 * value));
     out.push({ raw: raw!.trim(), value: Math.round(value * 100) / 100, tolerance });
   }
   return out;

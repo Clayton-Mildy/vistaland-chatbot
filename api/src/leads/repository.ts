@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, inArray, max } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, inArray, max, sql } from 'drizzle-orm';
 import { getDb } from '../db/client.js';
 import { contacts, conversations, leadEvents, leads, messages, type LeadEventKind, type LeadStage } from '../db/schema/index.js';
 import { canMoniSetStage } from './stages.js';
@@ -173,20 +173,42 @@ export async function recentMessages(conversationId: string, limit: number): Pro
   return rows.reverse();
 }
 
+/** Customer messages that arrived after `since` (arrival time, see messages.received_at). */
 export async function customerMessagesSince(conversationId: string, since: Date): Promise<Message[]> {
   return getDb()
     .select()
     .from(messages)
-    .where(and(eq(messages.conversationId, conversationId), eq(messages.sender, 'customer'), gt(messages.createdAt, since)))
+    .where(and(eq(messages.conversationId, conversationId), eq(messages.sender, 'customer'), gt(messages.receivedAt, since)))
     .orderBy(asc(messages.createdAt), asc(messages.id));
 }
 
+/** When the customer last got a message from us. Failed sends and unsent drafts do not count. */
 export async function lastOutboundAt(conversationId: string): Promise<Date | null> {
   const [row] = await getDb()
-    .select({ at: max(messages.createdAt) })
+    .select({ at: max(messages.receivedAt) })
     .from(messages)
-    .where(and(eq(messages.conversationId, conversationId), eq(messages.direction, 'out')));
+    .where(and(eq(messages.conversationId, conversationId), eq(messages.direction, 'out'), eq(messages.status, 'sent')));
   return row?.at ?? null;
+}
+
+/**
+ * Conversations with a customer message from the last `withinMs` that nothing was sent after.
+ * The debouncer lives in memory, so after a restart these are queued again.
+ */
+export async function conversationsAwaitingReply(withinMs: number): Promise<string[]> {
+  const since = new Date(Date.now() - withinMs);
+  const rows = await getDb().execute<{ id: string }>(sql`
+    select c.id from conversations c
+    where exists (
+      select 1 from messages m
+      where m.conversation_id = c.id and m.sender = 'customer' and m.received_at > ${since}
+        and m.received_at > coalesce(
+          (select max(o.received_at) from messages o
+            where o.conversation_id = c.id and o.direction = 'out' and o.status = 'sent'),
+          'epoch'::timestamptz)
+    )
+  `);
+  return rows.rows.map((r) => r.id);
 }
 
 // ─── lead facts, stage, project ─────────────────────────────────────────────

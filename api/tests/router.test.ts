@@ -22,6 +22,7 @@ import { createDebouncer } from '../src/router/debounce.js';
 import { recordingTransport, type Transport } from '../src/router/transport.js';
 import { handleInbound } from '../src/router/inbound.js';
 import { runTurn, type TurnDeps } from '../src/router/turn.js';
+import { conversationsAwaitingReply, insertOutbound } from '../src/leads/repository.js';
 
 let zetira: Project;
 let seq = 0;
@@ -261,4 +262,51 @@ it('first message with a tag sets the project and source', async () => {
   await handleInbound(msg('[ZTR-REELS] Halo'), { debouncer: stubDebouncer(), transport: () => recordingTransport(), now: () => new Date() });
   const c = await upsertContact(PHONE, null);
   expect(await getLeadByContact(c.id)).toMatchObject({ currentProjectId: zetira.id, sourceChannel: 'instagram', sourceContentKind: 'reels', sourceRef: 'ZTR-REELS', stage: 'engaged' });
+});
+
+it('does not send when staff take over while Moni is thinking', async () => {
+  await handleInbound(msg('halo'), { debouncer: stubDebouncer(), transport: () => recordingTransport(), now: () => new Date() });
+  const conv = await conversationOf();
+  const transport = recordingTransport();
+  const client = fakeAnthropic([
+    async () => {
+      await setTakeover(conv, new Date(Date.now() + 3_600_000), 'staff:x', 'diambil alih staf');
+      return respond('Halo Kak');
+    },
+  ]);
+  const out = await runTurn(conv, deps({ anthropic: client, transport }));
+  expect(out.kind).toBe('skipped');
+  expect(transport.sent).toEqual([]);
+  expect((await recentMessages(conv, 10)).filter((m) => m.sender === 'moni').map((m) => m.status)).toEqual(['recorded']);
+});
+
+it('answers a message whose webhook arrived after Moni replied, even with an earlier WhatsApp time', async () => {
+  await handleInbound(msg('halo'), { debouncer: stubDebouncer(), transport: () => recordingTransport(), now: () => new Date() });
+  const conv = await conversationOf();
+  const transport = recordingTransport();
+  await runTurn(conv, deps({ anthropic: fakeAnthropic([respond('Halo Kak')]), transport }));
+  // sent by the customer two seconds before Moni's reply was stored, delivered after it
+  await insertInbound(conv, { waMessageId: 'wamid.late', kind: 'text', body: 'mau tanya harga', createdAt: new Date(Date.now() - 2000) });
+  const out = await runTurn(conv, deps({ anthropic: fakeAnthropic([respond('Siap Kak')]), transport }));
+  expect(out.kind).toBe('replied');
+  expect(transport.sent.map((s) => s.body)).toEqual(['Halo Kak', 'Siap Kak']);
+});
+
+it('lists conversations still waiting for an answer, for the startup sweep', async () => {
+  await handleInbound(msg('halo'), { debouncer: stubDebouncer(), transport: () => recordingTransport(), now: () => new Date() });
+  const conv = await conversationOf();
+  expect(await conversationsAwaitingReply(3_600_000)).toEqual([conv]);
+  await runTurn(conv, deps({ anthropic: fakeAnthropic([respond('Halo Kak')]) }));
+  expect(await conversationsAwaitingReply(3_600_000)).toEqual([]);
+});
+
+it('a failed Moni send is not replayed as something Moni said', async () => {
+  await handleInbound(msg('q1'), { debouncer: stubDebouncer(), transport: () => recordingTransport(), now: () => new Date() });
+  const conv = await conversationOf();
+  await insertOutbound(conv, { sender: 'moni', kind: 'text', body: 'jawaban gagal', waMessageId: null, status: 'failed' });
+  await insertInbound(conv, { waMessageId: 'wamid.q2', kind: 'text', body: 'q2', createdAt: new Date() });
+  const client = fakeAnthropic([respond('Halo Kak')]);
+  await runTurn(conv, deps({ anthropic: client }));
+  const sent = client.params[0]!['messages'] as { role: string; content: string }[];
+  expect(sent).toEqual([{ role: 'user', content: 'q1\nq2' }]);
 });

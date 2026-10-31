@@ -51,10 +51,15 @@ export const messages = pgTable(
     body: text('body').notNull(),
     mediaUrl: text('media_url'),
     status: text('status').notNull().$type<'received' | 'sent' | 'failed' | 'recorded'>(),
+    // When the customer (or WhatsApp) sent it; shown to staff. Inbound uses WhatsApp's time.
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    // When it reached us. "Has Moni answered this?" is decided on arrival order: a webhook can
+    // land after Moni's reply although the customer sent it before.
+    receivedAt: timestamp('received_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     index('messages_conversation_created_idx').on(t.conversationId, t.createdAt),
+    index('messages_conversation_received_idx').on(t.conversationId, t.receivedAt),
     check('messages_direction_check', sql`${t.direction} in ('in', 'out')`),
     check('messages_sender_check', sql`${t.sender} in ('customer', 'moni', 'staff', 'system')`),
     check('messages_status_check', sql`${t.status} in ('received', 'sent', 'failed', 'recorded')`),

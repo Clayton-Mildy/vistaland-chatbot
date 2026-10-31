@@ -8,7 +8,7 @@ import { createDebouncer } from './router/debounce.js';
 import { chakraTransport } from './router/transport.js';
 import { runTurn } from './router/turn.js';
 import { handleInbound } from './router/inbound.js';
-import { getConversation } from './leads/repository.js';
+import { conversationsAwaitingReply, getConversation } from './leads/repository.js';
 import { syncStaffReplies } from './chakra/staffSync.js';
 
 const config = getConfig();
@@ -50,6 +50,11 @@ const app = buildApp({
 });
 
 await app.listen({ port: config.PORT, host: '0.0.0.0' });
+
+// Turns waiting in the debouncer are lost on restart; queue whatever is still unanswered.
+const waiting = await conversationsAwaitingReply(3_600_000);
+for (const id of waiting) debouncer.push(id);
+if (waiting.length) console.log(`[moni] re-queued ${waiting.length} unanswered conversation(s) after restart`);
 
 if (vles) startVlesSync(vles, config.VLES_SYNC_INTERVAL_MS);
 else console.log('[vles] VLES_API_KEY is empty - sync is off');

@@ -92,8 +92,10 @@ type Handlers = { [K in Exclude<ToolName, 'respond_to_customer'>]: (input: Input
 const handlers: Handlers = {
   async search_units(i, ctx) {
     const p = await resolveProject(i.project);
-    ctx.evidence.toolsCalled.add('search_units');
-    return searchUnits({ projectId: p.id, bedrooms: i.bedrooms, maxPrice: i.max_price, maxMonthly: i.max_monthly, salesCategory: i.sales_category });
+    const r = await searchUnits({ projectId: p.id, bedrooms: i.bedrooms, maxPrice: i.max_price, maxMonthly: i.max_monthly, salesCategory: i.sales_category });
+    // Only results with stock in them back a claim about stock.
+    if (r.types.length > 0) ctx.evidence.toolsCalled.add('search_units');
+    return r;
   },
 
   async get_type_details(i) {
@@ -104,9 +106,11 @@ const handlers: Handlers = {
 
   async check_availability(i, ctx) {
     const p = await resolveProject(i.project);
-    ctx.evidence.toolsCalled.add('check_availability');
     const r = await checkAvailability(ctx.vles, { projectId: p.id, houseTypeId: i.house_type_id, facing: i.facing });
-    if (r.verified) ctx.evidence.verifiedUnitNumbers.push(...r.units.map((u) => u.unitNumber));
+    if (r.verified) {
+      ctx.evidence.toolsCalled.add('check_availability');
+      ctx.evidence.verifiedUnitNumbers.push(...r.units.map((u) => u.unitNumber));
+    }
     return r;
   },
 
@@ -165,6 +169,8 @@ const handlers: Handlers = {
       lostReason: i.lost_reason,
     };
     let lead = await updateLeadFacts(ctx.leadId, patch, 'moni');
+    // Moni may repeat the customer's own budget back to them ("budget Rp450 jt ya").
+    for (const v of [i.budget_price, i.budget_monthly, i.dp_budget]) if (v !== undefined) ctx.evidence.knownAmounts.push(v);
     if (i.stage) {
       try {
         lead = await setLeadStage(ctx.leadId, i.stage, 'moni');

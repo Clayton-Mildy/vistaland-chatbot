@@ -1,0 +1,2 @@
+ALTER TABLE "messages" ADD COLUMN "received_at" timestamp with time zone DEFAULT now() NOT NULL;--> statement-breakpoint
+CREATE INDEX "messages_conversation_received_idx" ON "messages" USING btree ("conversation_id","received_at");

@@ -66,7 +66,8 @@ function asText(m: Message): string {
 function toHistory(messages: Message[]): Anthropic.Beta.BetaMessageParam[] {
   const out: { role: 'user' | 'assistant'; content: string }[] = [];
   for (const m of messages) {
-    if (m.sender === 'system') continue;
+    // Failed sends and unsent drafts never reached the customer.
+    if (m.sender === 'system' || (m.direction === 'out' && m.status !== 'sent')) continue;
     const role = m.direction === 'in' ? 'user' : 'assistant';
     const last = out[out.length - 1];
     if (last && last.role === role) last.content += `\n${asText(m)}`;
@@ -154,6 +155,13 @@ export async function runTurn(conversationId: string, deps: TurnDeps): Promise<T
   if (result.kind === 'no_reply') {
     if (result.handoffReason) await setTakeover(conversationId, new Date(now.getTime() + (await takeoverHours()) * 3_600_000), 'moni', result.handoffReason);
     return { kind: 'no_reply', sent: 0, result };
+  }
+
+  // A human may have stepped in while Moni was thinking: keep the draft for staff, send nothing.
+  const latest = await getConversation(conversationId);
+  if (!latest || !latest.aiEnabled || isUnderTakeover(latest, now) || !(await getAppSettings()).aiEnabled) {
+    await insertOutbound(conversationId, { sender: 'moni', kind: 'text', body: result.message, waMessageId: null, status: 'recorded' });
+    return { kind: 'skipped', sent: 0, result };
   }
 
   let sent = 0;
