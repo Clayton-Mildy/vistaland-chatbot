@@ -3,11 +3,16 @@ import { signOut, type Role } from "@/lib/auth";
 
 const ROLE_LABEL: Record<Role, string> = { admin: "Admin", sales: "Sales" };
 
-// Later milestones add Leads, Jadwal, Percakapan, and the rest here.
+// Milestone 3 adds Jadwal and opens Leads to sales for their own leads.
 const ITEMS: { href: string; label: string; adminOnly?: boolean }[] = [
   { href: "/", label: "Beranda" },
+  { href: "/leads", label: "Leads", adminOnly: true },
+  { href: "/test-chat", label: "Uji Chat", adminOnly: true },
   { href: "/stock", label: "Stok Unit", adminOnly: true },
+  { href: "/projects", label: "Proyek & Materi", adminOnly: true },
+  { href: "/kpr", label: "Asumsi KPR", adminOnly: true },
   { href: "/staff", label: "Staf", adminOnly: true },
+  { href: "/settings", label: "Pengaturan", adminOnly: true },
 ];
 
 export function Sidebar({ role, userName }: { role: Role | null; userName: string }) {
