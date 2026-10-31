@@ -43,6 +43,7 @@ const debouncer = createDebouncer({
 });
 
 const app = buildApp({
+  chakra,
   onInbound: (m) =>
     handleInbound(m, { debouncer, transport: (phoneNumberId) => chakraTransport(chakra, phoneNumberId), now: () => new Date() }),
 });

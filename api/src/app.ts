@@ -8,10 +8,14 @@ import { mediaRoutes } from './routes/media.js';
 import { catalogRoutes } from './routes/catalog.js';
 import { webhookRoutes } from './routes/webhook.js';
 import type { InboundMessage } from './chakra/parse.js';
+import type { ChakraClient } from './chakra/client.js';
+import { leadRoutes } from './routes/leads.js';
 
 export type AppDeps = {
   // Handles each WhatsApp message the webhook accepts; index.ts wires the router in.
   onInbound?: (m: InboundMessage) => Promise<unknown>;
+  // Sends staff replies from the dashboard.
+  chakra?: ChakraClient;
 };
 
 export function buildApp(deps: AppDeps = {}): FastifyInstance {
@@ -27,6 +31,7 @@ export function buildApp(deps: AppDeps = {}): FastifyInstance {
   void app.register(kprRoutes);
   void app.register(mediaRoutes);
   void app.register(catalogRoutes);
+  void app.register(leadRoutes({ chakra: deps.chakra }));
   void app.register(webhookRoutes({ onInbound: deps.onInbound ?? (async () => undefined) }));
 
   return app;

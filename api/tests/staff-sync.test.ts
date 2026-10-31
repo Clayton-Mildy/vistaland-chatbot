@@ -79,6 +79,8 @@ it('runTurn skips and starts a takeover when staff replied in ChakraHQ', async (
   expect(transport.sent).toEqual([]);
   expect((await getConversation(convId))!.humanTakeoverUntil).not.toBeNull();
   expect((await listEvents(leadId, ['handoff']))[0]!.payload).toMatchObject({ reason: 'balasan staf di ChakraHQ' });
+  // staff are already handling it, so the Leads list must not flag it for attention
+  expect((await listEvents(leadId, ['handoff']))[0]!.actor).toBe('staff:chakra');
 });
 
 it('the client finds the chat by phone and lists its messages', async () => {
