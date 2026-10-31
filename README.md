@@ -33,6 +33,37 @@ no customer data):
 cd api && VLES_API_KEY=$(security find-generic-password -s vles-api-key-dev -w) npx tsx scripts/record-vles-fixtures.ts
 ```
 
+## Moni on WhatsApp
+
+Moni answers WhatsApp messages that ChakraHQ forwards to `POST /webhook`. It needs:
+
+- `ANTHROPIC_API_KEY` (and optionally `MONI_MODEL`, default `claude-opus-5-5`, and `MONI_EFFORT`,
+  default `medium`). Without a key every conversation is handed to staff instead of answered.
+- `CHAKRA_PLUGIN_ID`, `CHAKRA_ACCESS_TOKEN`, `CHAKRA_WEBHOOK_SECRET`, and in ChakraHQ a webhook to
+  `https://<DOMAIN>/webhook`. Webhooks with a wrong signature are acknowledged and dropped.
+- `PUBLIC_BASE_URL`: WhatsApp downloads materials from `PUBLIC_BASE_URL/media/<file>`, so it must
+  be the public https origin.
+
+Before going live, fill in the dashboard as admin:
+1. **Proyek & Materi**: bedrooms for each house type (Moni cannot filter types without them), the
+   latest flyer, house video and promo image, promo wording, and the ad tags used in Click-to-WhatsApp
+   prefilled messages (for example `[ZTR-REELS] Halo`).
+2. **Asumsi KPR**: the fixed and floating rates, tenors and DP per project. Without them Moni gives
+   no instalment simulations.
+3. **Uji Chat**: rehearse conversations. Nothing reaches WhatsApp and test leads stay out of Leads;
+   it does use the Anthropic API.
+
+Moni pauses on a conversation (a takeover, default 24 hours, see **Pengaturan**) when it hands off,
+when a reply fails its checks, when staff reply from the dashboard, and when staff reply from
+ChakraHQ's own inbox. **Leads** flags hand-offs nobody has answered yet as "Perlu ditangani".
+
+To try the webhook locally without ChakraHQ:
+
+```sh
+cd api && NODE_ENV=development SKIP_HMAC_IN_DEV=true npm run dev
+curl -X POST -H 'content-type: application/json' --data @tests/fixtures/chakra/inbound-text.json localhost:50060/webhook
+```
+
 ## Deploy (cloud VM, Docker Compose)
 
 Four services: `postgres`, `api` (runs migrations, then starts), `dashboard`, and `caddy` (TLS on

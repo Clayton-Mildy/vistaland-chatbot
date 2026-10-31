@@ -44,6 +44,7 @@ const debouncer = createDebouncer({
 
 const app = buildApp({
   chakra,
+  agent: { anthropic, vles, settings: { model: config.MONI_MODEL, effort: config.MONI_EFFORT } },
   onInbound: (m) =>
     handleInbound(m, { debouncer, transport: (phoneNumberId) => chakraTransport(chakra, phoneNumberId), now: () => new Date() }),
 });

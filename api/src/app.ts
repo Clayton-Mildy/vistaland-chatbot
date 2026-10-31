@@ -10,12 +10,16 @@ import { webhookRoutes } from './routes/webhook.js';
 import type { InboundMessage } from './chakra/parse.js';
 import type { ChakraClient } from './chakra/client.js';
 import { leadRoutes } from './routes/leads.js';
+import { testChatRoutes, type AgentDeps } from './routes/testChat.js';
+import { settingsRoutes } from './routes/settings.js';
 
 export type AppDeps = {
   // Handles each WhatsApp message the webhook accepts; index.ts wires the router in.
   onInbound?: (m: InboundMessage) => Promise<unknown>;
   // Sends staff replies from the dashboard.
   chakra?: ChakraClient;
+  // The model and VLES client the test chat runs Moni with.
+  agent?: AgentDeps;
 };
 
 export function buildApp(deps: AppDeps = {}): FastifyInstance {
@@ -32,6 +36,10 @@ export function buildApp(deps: AppDeps = {}): FastifyInstance {
   void app.register(mediaRoutes);
   void app.register(catalogRoutes);
   void app.register(leadRoutes({ chakra: deps.chakra }));
+  void app.register(settingsRoutes);
+  void app.register(
+    testChatRoutes(deps.agent ?? { anthropic: null, vles: null, settings: { model: getConfig().MONI_MODEL, effort: getConfig().MONI_EFFORT } })
+  );
   void app.register(webhookRoutes({ onInbound: deps.onInbound ?? (async () => undefined) }));
 
   return app;
