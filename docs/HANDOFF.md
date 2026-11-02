@@ -7,18 +7,20 @@ Read this first if you are picking the work up in a new session or account.
 - **Spec:** `docs/superpowers/specs/2026-10-30-moni-sales-agent-design.md`
 - **Plans:**
   - `docs/superpowers/plans/2026-10-30-m1-foundation.md` (done, pushed)
-  - `docs/superpowers/plans/2026-10-31-m2-moni-answers.md` (done, **not pushed**)
+  - `docs/superpowers/plans/2026-10-31-m2-moni-answers.md` (done, pushed)
+  - `docs/superpowers/plans/2026-11-02-m3-visits.md` (Milestone 3, written, **not started**)
 - **Port reference:** `/Users/claytonmildy/WidaProject/FDE Projects/vinindo-app`
 - **Run and deploy instructions:** `README.md`, including the "Moni on WhatsApp" section.
 
 ## Status
 
 - **Milestone 1** (foundation: VLES sync, staff, dashboard login, stock) is on `origin/main`.
-- **Milestone 2** (Moni answers on WhatsApp) is complete on local `main`, 15 commits ahead of `origin/main`.
+- **Milestone 2** (Moni answers on WhatsApp) is complete and on `origin/main`.
   - Last commit: `5e1f8ad Close gaps in reply checks, takeover timing and unanswered messages`.
   - Tests: 161 API and 7 dashboard tests pass, and `npm run build` in `api/` passes.
   - A whole-branch review was run. All its critical and important findings are fixed, each with a test that failed first.
 - **Not done:** the live rehearsal against the real Claude model. Nothing has called the real Anthropic API yet.
+- **Milestone 3 plan:** written on branch `claude/adoring-davinci-i5lejq`. It needs review and a choice of execution method before Task 1.
 - **Implementation ledger:** `.superpowers/sdd/2026-10-31-m2-moni-answers/` (gitignored). It records every task, every fix, 39 rulings and 9 deferred minors. Keep it until the rehearsal is done.
 
 ## Next steps, in order
@@ -38,14 +40,19 @@ Read this first if you are picking the work up in a new session or account.
 
    For each chat, check the reply and the trace, and note `usage.cache_read_input_tokens` (prompt caching should kick in from turn 2). Record pass or fail for each chat in a commit message, and fix any tone problems in `api/src/agent/prompts/`.
 5. **Clean up.** Delete `.superpowers/sdd/2026-10-31-m2-moni-answers/`, then run the superpowers `finishing-a-development-branch` skill.
-6. **Push** `main` to `origin` (`git@github.com:Clayton-Mildy/vistaland-chatbot`). Ask the user first.
-7. **Milestone 3.** Write its plan from the spec:
-   - assigned sales and next visit on leads
-   - sales users seeing their own leads
-   - admin alerts on failures
-   - possibly a rate limit on the public `/webhook` and `/media`
+6. ~~**Push** `main` to `origin`.~~ Done: `origin/main` is at `0b06096`.
+7. **Milestone 3.** The plan is `docs/superpowers/plans/2026-11-02-m3-visits.md`, with 13 tasks. It covers:
+   - the roster, slot finder, fair assignment and visit lifecycle
+   - Moni's visit tools
+   - the outbound WhatsApp template queue, web push, and admin alerts on failures
+   - sales users seeing their own leads, with assigned sales and next visit
+   - the Schedule page
+   - the lead summary refresh
+   - the media rate limit
 
-   Milestone 4 then covers follow-ups, the opt-out block on outbound messages, and the scored conversation suite.
+   `/webhook` is deliberately left unlimited; the plan explains why. Ideally the rehearsal (steps 1–4) runs first, because its fixes land in the same prompt file that Task 9 rewrites.
+
+   Milestone 4 then covers follow-ups, the H-1 reminder, the opt-out block on outbound messages, and the scored conversation suite.
 
 ## Deferred minors (from the Milestone 2 review)
 
@@ -63,6 +70,7 @@ Read this first if you are picking the work up in a new session or account.
 
 - **Settings names.** Claude Code exports `CLAUDE_EFFORT=xhigh` into the shell, which is why the API's settings are named `MONI_MODEL` and `MONI_EFFORT`. Don't rename them back.
 - **Disk space.** The disk has run full twice. Check free space before Docker or npm work.
+- **Cloud sessions.** A plain Postgres 16 works for the tests: set `DATABASE_URL` and `TEST_DATABASE_URL` in `api/.env`. All 161 API and 7 dashboard tests passed that way on Node 22 on 2026-11-02, although `engines` asks for Node 24. Milestone 3 needs the `btree_gist` extension, which ships with Postgres.
 - **macOS.** There is no `timeout` command, so poll with until-loops. Process substitution doesn't work with `docker compose --env-file`, so write a temporary file instead.
 - **Dev data.** The dev database has a fake lead `6281234567890` from a webhook test, and `api/media/` holds a few test uploads.
 - **Unconfirmed.** It's still unknown whether ChakraHQ passes Meta's ad-referral data through. Project detection falls back to the `[TAG]` in the first message.
