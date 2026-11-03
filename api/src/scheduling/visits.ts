@@ -1,4 +1,4 @@
-import { and, asc, eq, gt, gte, inArray, lt, notInArray, sql, type SQL } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, gte, inArray, lt, notInArray, sql, type SQL } from 'drizzle-orm';
 import { getDb, type Db } from '../db/client.js';
 import { pgCode } from '../db/pgError.js';
 import { leads, projects, salesAgentProjects, salesAgents, visits } from '../db/schema/index.js';
@@ -80,6 +80,23 @@ export function getVisitView(id: string, db: DbOrTx = getDb()): Promise<VisitVie
 /** The visit a lead still has coming up (scheduled, confirmed or awaiting confirmation), if any. */
 export function activeVisitForLead(leadId: string, db: DbOrTx = getDb()): Promise<VisitView | null> {
   return readView(db, and(eq(visits.leadId, leadId), inArray(visits.status, [...ACTIVE_VISIT_STATUSES]))!);
+}
+
+/** The active visit of each lead that has one, keyed by lead id. */
+export async function activeVisitsForLeads(leadIds: string[]): Promise<Map<string, VisitView>> {
+  if (leadIds.length === 0) return new Map();
+  const rows = await selectViews(getDb())
+    .where(and(inArray(visits.leadId, leadIds), inArray(visits.status, [...ACTIVE_VISIT_STATUSES])))
+    .orderBy(asc(visits.startsAt));
+  const byLead = new Map<string, VisitView>();
+  for (const row of rows) if (!byLead.has(row.visit.leadId)) byLead.set(row.visit.leadId, toView(row));
+  return byLead;
+}
+
+/** Every visit of a lead, newest first. */
+export async function listVisitViewsForLead(leadId: string): Promise<VisitView[]> {
+  const rows = await selectViews(getDb()).where(eq(visits.leadId, leadId)).orderBy(desc(visits.startsAt), desc(visits.createdAt));
+  return rows.map(toView);
 }
 
 /** Visits of any status starting in [from, to), chronological; test visits only with `includeTest`. */

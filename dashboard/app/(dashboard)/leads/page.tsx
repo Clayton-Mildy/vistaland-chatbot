@@ -1,6 +1,8 @@
 import Link from "next/link";
-import { listLeads, STAGES, STAGE_LABEL, type LeadFilters } from "@/lib/api/leads";
+import { listLeads, STAGES, STAGE_LABEL, VISIT_STATUS_LABEL, type LeadFilters } from "@/lib/api/leads";
 import { listProjects } from "@/lib/api/catalog";
+import { listRoster } from "@/lib/api/roster";
+import { sessionUser } from "@/lib/session";
 import { formatRupiahShort, formatWib } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -10,7 +12,14 @@ const select = "h-9 rounded border border-slate-300 px-2 text-sm";
 
 export default async function LeadsPage({ searchParams }: { searchParams: Promise<LeadFilters> }) {
   const f = await searchParams;
-  const [res, projects] = await Promise.all([listLeads({ ...f, page: f.page ?? "1" }), listProjects()]);
+  const user = (await sessionUser())!;
+  const isAdmin = user.role === "admin";
+  // Only admins get the Sales filter; the API already limits a sales user to their own leads.
+  const [res, projects, roster] = await Promise.all([
+    listLeads({ ...f, page: f.page ?? "1" }, user.id),
+    listProjects(),
+    isAdmin ? listRoster() : Promise.resolve([]),
+  ]);
   const rows = res.data ?? [];
   const meta = res.meta ?? { page: 1, totalPages: 1, total: rows.length, limit: 25 };
   const pageLink = (page: number) => `/leads?${new URLSearchParams({ ...(f as Record<string, string>), page: String(page) }).toString()}`;
@@ -31,6 +40,14 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
             {projects.map((p) => <option key={p.id} value={p.id}>{p.displayName}</option>)}
           </select>
         </label>
+        {isAdmin && (
+          <label className="text-xs">Sales
+            <select name="salesAgentId" defaultValue={f.salesAgentId ?? ""} className={`${select} block`}>
+              <option value="">Semua</option>
+              {roster.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </select>
+          </label>
+        )}
         <label className="text-xs">Kanal
           <select name="channel" defaultValue={f.channel ?? ""} className={`${select} block`}>
             <option value="">Semua</option>
@@ -45,7 +62,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
 
       <table className="w-full rounded-lg bg-white text-left text-sm shadow-sm">
         <thead className="text-xs uppercase text-slate-500">
-          <tr><th className="px-3 py-2">Nama</th><th>Proyek</th><th>Kanal</th><th>Budget / cicilan</th><th>Minat</th><th>Tahap</th><th>Suhu</th><th>Terakhir chat</th></tr>
+          <tr><th className="px-3 py-2">Nama</th><th>Proyek</th><th>Kanal</th><th>Budget / cicilan</th><th>Minat</th><th>Tahap</th><th>Sales</th><th>Kunjungan</th><th>Suhu</th><th>Terakhir chat</th></tr>
         </thead>
         <tbody>
           {rows.map((r) => (
@@ -64,11 +81,20 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
               </td>
               <td>{[r.bedroomsWanted ? `${r.bedroomsWanted} KT` : null, ...r.typeInterest].filter(Boolean).join(", ") || "—"}</td>
               <td><span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs">{STAGE_LABEL[r.stage]}</span></td>
+              <td>{r.assignedSales?.name ?? "—"}</td>
+              <td className="text-xs">
+                {r.nextVisit ? (
+                  <>
+                    <Link href={`/visits/${r.nextVisit.id}`} className="text-brand-700 hover:underline">{r.nextVisit.label}</Link>
+                    <div><span className="rounded bg-slate-100 px-1.5 py-0.5">{VISIT_STATUS_LABEL[r.nextVisit.status] ?? r.nextVisit.status}</span></div>
+                  </>
+                ) : "—"}
+              </td>
               <td>{r.hotCold ?? "—"}</td>
               <td className="text-xs">{r.lastCustomerMsgAt ? formatWib(r.lastCustomerMsgAt) : "—"}</td>
             </tr>
           ))}
-          {rows.length === 0 && <tr><td colSpan={8} className="px-3 py-6 text-center text-slate-500">Belum ada lead.</td></tr>}
+          {rows.length === 0 && <tr><td colSpan={10} className="px-3 py-6 text-center text-slate-500">Belum ada lead.</td></tr>}
         </tbody>
       </table>
       <div className="flex items-center gap-3 text-sm">

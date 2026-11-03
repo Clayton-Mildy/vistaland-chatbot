@@ -4,10 +4,10 @@ import { PushToggle } from "@/components/PushToggle";
 
 const ROLE_LABEL: Record<Role, string> = { admin: "Admin", sales: "Sales" };
 
-// Milestone 3 adds Jadwal and opens Leads to sales for their own leads.
+// Sales see Beranda and Leads (their own leads only); the rest is admin only.
 const ITEMS: { href: string; label: string; adminOnly?: boolean }[] = [
   { href: "/", label: "Beranda" },
-  { href: "/leads", label: "Leads", adminOnly: true },
+  { href: "/leads", label: "Leads" },
   { href: "/test-chat", label: "Uji Chat", adminOnly: true },
   { href: "/stock", label: "Stok Unit", adminOnly: true },
   { href: "/projects", label: "Proyek & Materi", adminOnly: true },

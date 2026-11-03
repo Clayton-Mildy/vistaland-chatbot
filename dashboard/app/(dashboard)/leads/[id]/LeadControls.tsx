@@ -9,6 +9,7 @@ const input = "h-8 w-full rounded border border-slate-300 px-2 text-sm focus:bor
 
 export function LeadControls({ detail }: { detail: LeadDetail }) {
   const { lead, conversation } = detail;
+  const isAdmin = detail.role === "admin";
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<{ error?: string; note?: string }>({});
   const [reply, setReply] = useState("");
@@ -56,10 +57,14 @@ export function LeadControls({ detail }: { detail: LeadDetail }) {
     <>
       <section className="space-y-3 rounded-lg bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between">
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={conversation?.aiEnabled ?? false} disabled={pending || !conversation} onChange={(e) => run(() => aiAction(lead.id, e.target.checked), e.target.checked ? "Moni aktif untuk chat ini." : "Moni dimatikan untuk chat ini.")} />
-            Moni aktif
-          </label>
+          {isAdmin ? (
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={conversation?.aiEnabled ?? false} disabled={pending || !conversation} onChange={(e) => run(() => aiAction(lead.id, e.target.checked), e.target.checked ? "Moni aktif untuk chat ini." : "Moni dimatikan untuk chat ini.")} />
+              Moni aktif
+            </label>
+          ) : (
+            <span className="text-sm">Moni {conversation?.aiEnabled ? "aktif" : "nonaktif"}</span>
+          )}
           <button
             type="button"
             disabled={pending || !conversation}
@@ -84,6 +89,7 @@ export function LeadControls({ detail }: { detail: LeadDetail }) {
         {msg.note && <p className="text-sm text-brand-700">{msg.note}</p>}
       </section>
 
+      {isAdmin && (
       <section className="space-y-2 rounded-lg bg-white p-4 shadow-sm">
         <h2 className="font-semibold">Data lead</h2>
         <label className="block text-xs">Tahap
@@ -114,6 +120,7 @@ export function LeadControls({ detail }: { detail: LeadDetail }) {
         <p className="text-xs text-slate-600">Sumber: {lead.sourceChannel ?? "—"}{lead.sourceRef ? ` · ${lead.sourceRef}` : ""}</p>
         <button type="button" disabled={pending} onClick={save} className="h-8 rounded bg-brand-600 px-3 text-sm font-semibold text-white disabled:opacity-60">Simpan</button>
       </section>
+      )}
     </>
   );
 }

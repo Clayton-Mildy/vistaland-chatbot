@@ -45,7 +45,7 @@ it('test leads never appear in the Leads list, and reset removes them', async ()
   const a = app(fakeAnthropic([reply([tool('respond_to_customer', { message: 'Halo', no_reply: false })])]));
   await a.inject({ method: 'POST', url: `/api/v1/test-chat/${staffId}/messages`, headers: auth, payload: { text: 'Halo' } });
   await upsertContact('6281999', 'Real');
-  expect((await a.inject({ method: 'GET', url: '/api/v1/leads', headers: auth })).json().data).toEqual([]);
+  expect((await a.inject({ method: 'GET', url: '/api/v1/leads', headers: { ...auth, 'x-staff-id': staffId } })).json().data).toEqual([]);
   const reset = await a.inject({ method: 'DELETE', url: `/api/v1/test-chat/${staffId}`, headers: auth });
   expect(reset.statusCode).toBe(200);
   const { getDb } = await import('../src/db/client.js');

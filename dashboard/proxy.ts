@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 // Pages only admins may open. Sales are sent home; the server actions behind these pages check
 // the role again (lib/session.ts requireAdmin), so this is navigation, not the only guard.
-export const ADMIN_ONLY_PATHS = ["/stock", "/staff", "/projects", "/kpr", "/leads", "/test-chat", "/settings", "/roster"];
+export const ADMIN_ONLY_PATHS = ["/stock", "/staff", "/projects", "/kpr", "/test-chat", "/settings", "/roster"];
 
 export const proxy = auth((req) => {
   const path = req.nextUrl.pathname;

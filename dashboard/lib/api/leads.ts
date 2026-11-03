@@ -1,4 +1,4 @@
-import { apiFetch, type ApiEnvelope } from "./client";
+import { ApiError, apiFetch, type ApiEnvelope } from "./client";
 
 export const STAGES = [
   "new", "engaged", "qualified", "recommended", "visit_proposed", "visit_scheduled",
@@ -20,6 +20,16 @@ export const STAGE_LABEL: Record<Stage, string> = {
   opted_out: "Minta tidak dihubungi",
 };
 
+export const VISIT_STATUS_LABEL: Record<string, string> = {
+  scheduled: "Dijadwalkan",
+  confirmed: "Dikonfirmasi",
+  awaiting_confirmation: "Menunggu konfirmasi",
+  visited: "Sudah berkunjung",
+  no_show: "Tidak datang",
+  cancelled: "Dibatalkan",
+  rescheduled: "Dijadwalkan ulang",
+};
+
 export type LeadRow = {
   id: string;
   name: string | null;
@@ -36,6 +46,32 @@ export type LeadRow = {
   lastCustomerMsgAt: string | null;
   underTakeover: boolean;
   needsAttention: boolean;
+  assignedSales: { id: string; name: string } | null;
+  nextVisit: { id: string; startsAt: string; status: string; label: string } | null;
+};
+
+export type LeadVisit = {
+  id: string;
+  startsAt: string;
+  status: string;
+  label: string;
+  salesName: string;
+  projectName: string;
+};
+
+export type HandoverSummary = {
+  name: string;
+  phone: string;
+  source: string | null;
+  location: string | null;
+  purpose: string | null;
+  need: string | null;
+  budget: string | null;
+  concerns: string[];
+  materials: string[];
+  simulations: string[];
+  visit: { label: string; salesName: string; status: string } | null;
+  notes: string | null;
 };
 
 export type Lead = {
@@ -80,23 +116,34 @@ export type LeadDetail = {
   conversation: { id: string; aiEnabled: boolean; humanTakeoverUntil: string | null } | null;
   messages: LeadMessage[];
   events: LeadEvent[];
+  visits: LeadVisit[];
+  summary: HandoverSummary | null;
+  role: "admin" | "sales";
 };
 
-export type LeadFilters = { stage?: string; projectId?: string; channel?: string; from?: string; to?: string; q?: string; page?: string };
+export type LeadFilters = { stage?: string; projectId?: string; channel?: string; from?: string; to?: string; q?: string; salesAgentId?: string; page?: string };
 export type LeadPatch = Partial<Pick<Lead, "name" | "budgetPrice" | "budgetMonthly" | "dpBudget" | "bedroomsWanted" | "purpose" | "timeline" | "domicileArea" | "hotCold" | "lostReason" | "stage">>;
 
-const staff = (staffId: string | undefined): HeadersInit => (staffId ? { "X-Staff-Id": staffId } : {});
+const staff = (staffId: string): HeadersInit => ({ "X-Staff-Id": staffId });
 
-export async function listLeads(f: LeadFilters): Promise<ApiEnvelope<LeadRow[]>> {
+export async function listLeads(f: LeadFilters, staffId: string): Promise<ApiEnvelope<LeadRow[]>> {
   const qs = new URLSearchParams(Object.entries(f).filter(([, v]) => v) as [string, string][]);
-  return apiFetch<LeadRow[]>(`/leads?${qs.toString()}`);
+  return apiFetch<LeadRow[]>(`/leads?${qs.toString()}`, { headers: staff(staffId) });
 }
-export const getLeadDetail = async (id: string) => (await apiFetch<LeadDetail>(`/leads/${id}`)).data;
-export const patchLead = (id: string, patch: LeadPatch, staffId?: string) =>
+/** The lead, or null when it does not exist or is outside the account's scope (the API answers 404 for both). */
+export async function getLeadDetail(id: string, staffId: string): Promise<LeadDetail | null> {
+  try {
+    return (await apiFetch<LeadDetail>(`/leads/${id}`, { headers: staff(staffId) })).data;
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) return null;
+    throw err;
+  }
+}
+export const patchLead = (id: string, patch: LeadPatch, staffId: string) =>
   apiFetch<Lead>(`/leads/${id}`, { method: "PATCH", body: JSON.stringify(patch), headers: staff(staffId) });
-export const setLeadTakeover = (id: string, on: boolean, staffId?: string) =>
+export const setLeadTakeover = (id: string, on: boolean, staffId: string) =>
   apiFetch(`/leads/${id}/takeover`, { method: "POST", body: JSON.stringify({ on }), headers: staff(staffId) });
-export const setLeadAi = (id: string, enabled: boolean, staffId?: string) =>
+export const setLeadAi = (id: string, enabled: boolean, staffId: string) =>
   apiFetch(`/leads/${id}/ai`, { method: "POST", body: JSON.stringify({ enabled }), headers: staff(staffId) });
-export const sendStaffMessage = (id: string, body: string, staffId?: string) =>
+export const sendStaffMessage = (id: string, body: string, staffId: string) =>
   apiFetch(`/leads/${id}/messages`, { method: "POST", body: JSON.stringify({ body }), headers: staff(staffId) });

@@ -1,9 +1,12 @@
-import type { FastifyInstance, FastifyRequest } from 'fastify';
+import type { FastifyInstance } from 'fastify';
 import { and, count, desc, eq, gte, ilike, inArray, lt, or, sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import { requireApiSecret } from '../middleware/apiSecret.js';
 import { getDb } from '../db/client.js';
-import { contacts, conversations, leadEvents, leads, messages, projects, staffUsers, vlesUnits, LEAD_STAGES } from '../db/schema/index.js';
+import { contacts, conversations, leadEvents, leads, messages, projects, salesAgents, staffUsers, vlesUnits, LEAD_STAGES } from '../db/schema/index.js';
+import { leadVisible, resolveScope, type StaffScope } from '../leads/access.js';
+import { loadHandoverSummary } from '../leads/summary.js';
+import { activeVisitsForLeads, listVisitViewsForLead } from '../scheduling/visits.js';
 import { getAppSettings } from '../settings/appSettings.js';
 import type { ChakraClient } from '../chakra/client.js';
 import {
@@ -30,6 +33,7 @@ const ListQuery = z.object({
   from: IsoDate.optional(),
   to: IsoDate.optional(),
   q: z.string().trim().min(1).optional(),
+  salesAgentId: z.uuid().optional(),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(25),
 });
@@ -49,10 +53,16 @@ const FactsPatch = z.object({
   stage: z.enum(LEAD_STAGES).optional(),
 });
 
-/** The staff member acting, from the dashboard's X-Staff-Id header. */
-function staffOf(req: FastifyRequest): { actor: string; staffUserId: string | null } {
-  const id = z.uuid().safeParse(req.headers['x-staff-id']);
-  return id.success ? { actor: `staff:${id.data}`, staffUserId: id.data } : { actor: 'staff', staffUserId: null };
+/** How the lead's event log names the staff member acting. */
+const actorOf = (scope: StaffScope) => `staff:${scope.staffUserId}`;
+
+const staffRequired = { data: null, error: 'STAFF_REQUIRED' };
+const forbidden = { data: null, error: 'FORBIDDEN' };
+
+/** The lead when the scope may see it; a lead outside the scope reads as missing. */
+async function visibleLead(scope: StaffScope, id: string) {
+  const lead = await getLead(id);
+  return lead && leadVisible(scope, lead) ? lead : null;
 }
 
 const nextDay = (d: string) => new Date(new Date(`${d}T00:00:00+07:00`).getTime() + 86_400_000);
@@ -81,10 +91,17 @@ export function leadRoutes(deps: { chakra?: ChakraClient }) {
     const opts = { preHandler: [requireApiSecret] };
 
     app.get('/api/v1/leads', opts, async (req, reply) => {
+      const scope = await resolveScope(req);
+      if (!scope) return reply.code(401).send(staffRequired);
       const q = ListQuery.safeParse(req.query);
       if (!q.success) return reply.code(400).send(bad);
       const f = q.data;
+      if (scope.role === 'sales' && !scope.salesAgentId) {
+        return reply.send({ data: [], error: null, meta: { page: f.page, limit: f.limit, total: 0, totalPages: 1 } });
+      }
       const where: SQL[] = [eq(contacts.isTest, false)];
+      const agentFilter = scope.role === 'sales' ? scope.salesAgentId : f.salesAgentId;
+      if (agentFilter) where.push(eq(leads.assignedSalesId, agentFilter));
       if (f.stage) where.push(eq(leads.stage, f.stage));
       if (f.projectId) where.push(eq(leads.currentProjectId, f.projectId));
       if (f.channel) where.push(eq(leads.sourceChannel, f.channel));
@@ -94,11 +111,12 @@ export function leadRoutes(deps: { chakra?: ChakraClient }) {
 
       const db = getDb();
       const base = db
-        .select({ lead: leads, contact: contacts, conv: conversations, projectName: projects.displayName })
+        .select({ lead: leads, contact: contacts, conv: conversations, projectName: projects.displayName, salesName: salesAgents.name })
         .from(leads)
         .innerJoin(contacts, eq(contacts.id, leads.contactId))
         .leftJoin(conversations, eq(conversations.contactId, leads.contactId))
         .leftJoin(projects, eq(projects.id, leads.currentProjectId))
+        .leftJoin(salesAgents, eq(salesAgents.id, leads.assignedSalesId))
         .where(and(...where));
       const [total] = await db
         .select({ n: count() })
@@ -121,10 +139,12 @@ export function leadRoutes(deps: { chakra?: ChakraClient }) {
             ).map((t) => [t.id, t.name])
           : []
       );
+      const nextVisits = await activeVisitsForLeads(rows.map((r) => r.lead.id));
       const now = new Date();
       const data = [];
       for (const r of rows) {
         const under = r.conv ? isUnderTakeover(r.conv, now) : false;
+        const visit = nextVisits.get(r.lead.id);
         data.push({
           id: r.lead.id,
           name: r.lead.name ?? r.contact.displayName,
@@ -141,6 +161,8 @@ export function leadRoutes(deps: { chakra?: ChakraClient }) {
           lastCustomerMsgAt: r.conv?.lastCustomerMsgAt ?? null,
           underTakeover: under,
           needsAttention: under && r.conv ? await needsAttention(r.lead.id, r.conv.id) : false,
+          assignedSales: r.lead.assignedSalesId && r.salesName ? { id: r.lead.assignedSalesId, name: r.salesName } : null,
+          nextVisit: visit ? { id: visit.id, startsAt: visit.startsAt, status: visit.status, label: visit.label } : null,
         });
       }
       const n = total?.n ?? 0;
@@ -148,9 +170,11 @@ export function leadRoutes(deps: { chakra?: ChakraClient }) {
     });
 
     app.get('/api/v1/leads/:id', opts, async (req, reply) => {
+      const scope = await resolveScope(req);
+      if (!scope) return reply.code(401).send(staffRequired);
       const p = IdParams.safeParse(req.params);
       if (!p.success) return reply.code(404).send(notFound);
-      const lead = await getLead(p.data.id);
+      const lead = await visibleLead(scope, p.data.id);
       if (!lead) return reply.code(404).send(notFound);
       const contact = await getContact(lead.contactId);
       const conv = await getConversationByContact(lead.contactId);
@@ -174,17 +198,23 @@ export function leadRoutes(deps: { chakra?: ChakraClient }) {
           conversation: conv ? { id: conv.id, aiEnabled: conv.aiEnabled, humanTakeoverUntil: conv.humanTakeoverUntil } : null,
           messages: msgs,
           events: await listEvents(lead.id),
+          visits: await listVisitViewsForLead(lead.id),
+          summary: await loadHandoverSummary(lead.id),
+          role: scope.role,
         },
         error: null,
       });
     });
 
     app.patch('/api/v1/leads/:id', opts, async (req, reply) => {
+      const scope = await resolveScope(req);
+      if (!scope) return reply.code(401).send(staffRequired);
+      if (scope.role !== 'admin') return reply.code(403).send(forbidden);
       const p = IdParams.safeParse(req.params);
       const body = FactsPatch.safeParse(req.body);
       if (!p.success || !body.success) return reply.code(400).send(bad);
       if (!(await getLead(p.data.id))) return reply.code(404).send(notFound);
-      const { actor } = staffOf(req);
+      const actor = actorOf(scope);
       const { stage, ...facts } = body.data;
       let lead = await updateLeadFacts(p.data.id, facts, actor);
       if (stage) lead = await setLeadStage(p.data.id, stage, actor, { force: true });
@@ -192,18 +222,23 @@ export function leadRoutes(deps: { chakra?: ChakraClient }) {
     });
 
     app.post('/api/v1/leads/:id/takeover', opts, async (req, reply) => {
+      const scope = await resolveScope(req);
+      if (!scope) return reply.code(401).send(staffRequired);
       const p = IdParams.safeParse(req.params);
       const body = z.object({ on: z.boolean() }).safeParse(req.body);
       if (!p.success || !body.success) return reply.code(400).send(bad);
-      const lead = await getLead(p.data.id);
+      const lead = await visibleLead(scope, p.data.id);
       const conv = lead ? await getConversationByContact(lead.contactId) : null;
       if (!conv) return reply.code(404).send(notFound);
       const until = body.data.on ? new Date(Date.now() + (await getAppSettings()).takeoverHours * 3_600_000) : null;
-      await setTakeover(conv.id, until, staffOf(req).actor, body.data.on ? 'diambil alih staf' : undefined);
+      await setTakeover(conv.id, until, actorOf(scope), body.data.on ? 'diambil alih staf' : undefined);
       return reply.send({ data: { humanTakeoverUntil: until }, error: null });
     });
 
     app.post('/api/v1/leads/:id/ai', opts, async (req, reply) => {
+      const scope = await resolveScope(req);
+      if (!scope) return reply.code(401).send(staffRequired);
+      if (scope.role !== 'admin') return reply.code(403).send(forbidden);
       const p = IdParams.safeParse(req.params);
       const body = z.object({ enabled: z.boolean() }).safeParse(req.body);
       if (!p.success || !body.success) return reply.code(400).send(bad);
@@ -216,16 +251,19 @@ export function leadRoutes(deps: { chakra?: ChakraClient }) {
 
     // A staff reply from the dashboard: goes out through ChakraHQ and pauses Moni.
     app.post('/api/v1/leads/:id/messages', opts, async (req, reply) => {
+      const scope = await resolveScope(req);
+      if (!scope) return reply.code(401).send(staffRequired);
       const p = IdParams.safeParse(req.params);
       const body = z.object({ body: z.string().trim().min(1).max(4000) }).safeParse(req.body);
       if (!p.success || !body.success) return reply.code(400).send(bad);
-      const lead = await getLead(p.data.id);
+      const lead = await visibleLead(scope, p.data.id);
       const contact = lead ? await getContact(lead.contactId) : null;
       const conv = lead ? await getConversationByContact(lead.contactId) : null;
       if (!lead || !contact || !conv) return reply.code(404).send(notFound);
       if (contact.isTest) return reply.code(409).send({ data: null, error: 'TEST_CONTACT' });
       if (!deps.chakra) return reply.code(503).send({ data: null, error: 'CHAKRA_NOT_CONFIGURED' });
-      const { actor, staffUserId } = staffOf(req);
+      const actor = actorOf(scope);
+      const staffUserId = scope.staffUserId;
       try {
         const sent = await deps.chakra.sendText(conv.waPhoneNumberId ?? '', contact.waPhone, body.data.body);
         const row = await insertOutbound(conv.id, { sender: 'staff', staffUserId, kind: 'text', body: body.data.body, waMessageId: sent.waMessageId, status: 'sent' });
