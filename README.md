@@ -57,6 +57,12 @@ Moni pauses on a conversation (a takeover, default 24 hours, see **Pengaturan**)
 when a reply fails its checks, when staff reply from the dashboard, and when staff reply from
 ChakraHQ's own inbox. **Leads** flags hand-offs nobody has answered yet as "Perlu ditangani".
 
+Staff get Web Push alerts (hand-offs, failed replies, unverified availability, visit changes, failed
+WhatsApp templates). Generate the VAPID keys once with `npx web-push generate-vapid-keys`, put them in
+`VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` (and a `VAPID_SUBJECT` such as `mailto:you@example.com`),
+then each person turns it on with **Aktifkan notifikasi** in the dashboard sidebar. Push is off while
+either key is empty.
+
 To try the webhook locally without ChakraHQ:
 
 ```sh

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { signOut, type Role } from "@/lib/auth";
+import { PushToggle } from "@/components/PushToggle";
 
 const ROLE_LABEL: Record<Role, string> = { admin: "Admin", sales: "Sales" };
 
@@ -16,7 +17,7 @@ const ITEMS: { href: string; label: string; adminOnly?: boolean }[] = [
   { href: "/settings", label: "Pengaturan", adminOnly: true },
 ];
 
-export function Sidebar({ role, userName }: { role: Role | null; userName: string }) {
+export function Sidebar({ role, userName, pushPublicKey }: { role: Role | null; userName: string; pushPublicKey: string | null }) {
   return (
     <nav className="flex h-full flex-col gap-1 p-4">
       <p className="px-2 text-sm font-bold tracking-wide text-brand-700">VISTA LAND · MONI</p>
@@ -28,17 +29,19 @@ export function Sidebar({ role, userName }: { role: Role | null; userName: strin
           {i.label}
         </Link>
       ))}
-      <form
-        className="mt-auto"
-        action={async () => {
-          "use server";
-          await signOut({ redirectTo: "/login" });
-        }}
-      >
-        <button type="submit" className="w-full rounded px-2 py-1.5 text-left text-sm hover:bg-slate-200">
-          Keluar
-        </button>
-      </form>
+      <div className="mt-auto">
+        {pushPublicKey && <PushToggle publicKey={pushPublicKey} />}
+        <form
+          action={async () => {
+            "use server";
+            await signOut({ redirectTo: "/login" });
+          }}
+        >
+          <button type="submit" className="w-full rounded px-2 py-1.5 text-left text-sm hover:bg-slate-200">
+            Keluar
+          </button>
+        </form>
+      </div>
     </nav>
   );
 }

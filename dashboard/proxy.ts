@@ -18,5 +18,6 @@ export const proxy = auth((req) => {
 });
 
 export const config = {
-  matcher: ["/((?!api/auth|_next/static|_next/image|favicon.ico|login).*)"],
+  // sw.js and the manifest are fetched by the browser itself, which must not be sent to /login.
+  matcher: ["/((?!api/auth|_next/static|_next/image|favicon.ico|login|sw.js|manifest.webmanifest).*)"],
 };

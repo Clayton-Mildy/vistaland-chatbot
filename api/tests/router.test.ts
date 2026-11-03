@@ -22,6 +22,7 @@ import { createDebouncer } from '../src/router/debounce.js';
 import { recordingTransport, type Transport } from '../src/router/transport.js';
 import { handleInbound } from '../src/router/inbound.js';
 import { runTurn, type TurnDeps } from '../src/router/turn.js';
+import type { Alerts } from '../src/notify/alerts.js';
 import { conversationsAwaitingReply, insertOutbound } from '../src/leads/repository.js';
 
 let zetira: Project;
@@ -255,6 +256,50 @@ it('a handoff from Moni sends the reply and starts a takeover', async () => {
   expect((await getConversation(conv))!.humanTakeoverUntil).not.toBeNull();
   // a second turn is skipped while the takeover lasts
   expect((await runTurn(conv, deps({ anthropic: fakeAnthropic([]), transport }))).kind).toBe('skipped');
+});
+
+const fakeAlerts = () => ({ leadNeedsStaff: vi.fn(async () => {}), availabilityUnverified: vi.fn(async () => {}), visitChanged: vi.fn(async () => {}), outboundFailed: vi.fn(async () => {}) }) satisfies Alerts;
+
+it('a failed turn alerts staff with kind failure', async () => {
+  await handleInbound(msg('halo'), { debouncer: stubDebouncer(), transport: () => recordingTransport(), now: () => new Date() });
+  const conv = await conversationOf();
+  const lead = (await getLeadByContact((await getConversation(conv))!.contactId))!;
+  const alerts = fakeAlerts();
+  await runTurn(conv, deps({ anthropic: fakeAnthropic([respond('Rp450 jt'), respond('Rp450 jt')]), alerts }));
+  expect(alerts.leadNeedsStaff).toHaveBeenCalledTimes(1);
+  expect(alerts.leadNeedsStaff).toHaveBeenCalledWith(lead.id, expect.stringContaining('REPLY_CHECK'), 'failure');
+});
+
+it('a reply that could not be sent alerts staff with kind failure', async () => {
+  await handleInbound(msg('halo'), { debouncer: stubDebouncer(), transport: () => recordingTransport(), now: () => new Date() });
+  const conv = await conversationOf();
+  const lead = (await getLeadByContact((await getConversation(conv))!.contactId))!;
+  const transport: Transport = { sendText: async () => { throw new Error('down'); }, sendMedia: async () => { throw new Error('down'); } };
+  const alerts = fakeAlerts();
+  const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+  await runTurn(conv, deps({ anthropic: fakeAnthropic([respond('Halo Kak')]), transport, alerts }));
+  log.mockRestore();
+  expect(alerts.leadNeedsStaff).toHaveBeenCalledWith(lead.id, 'Balasan Moni gagal terkirim', 'failure');
+});
+
+it('a Moni hand-off alerts staff with kind handoff', async () => {
+  await handleInbound(msg('mau nego harga'), { debouncer: stubDebouncer(), transport: () => recordingTransport(), now: () => new Date() });
+  const conv = await conversationOf();
+  const lead = (await getLeadByContact((await getConversation(conv))!.contactId))!;
+  const alerts = fakeAlerts();
+  await runTurn(conv, deps({ anthropic: fakeAnthropic([reply([tool('handoff_to_human', { reason: 'nego harga' }), tool('respond_to_customer', { message: 'Moni teruskan ke tim ya Kak', no_reply: false })])]), alerts }));
+  expect(alerts.leadNeedsStaff).toHaveBeenCalledTimes(1);
+  expect(alerts.leadNeedsStaff).toHaveBeenCalledWith(lead.id, 'nego harga', 'handoff');
+});
+
+it('a staff reply in ChakraHQ alerts nobody', async () => {
+  await handleInbound(msg('halo'), { debouncer: stubDebouncer(), transport: () => recordingTransport(), now: () => new Date() });
+  const conv = await conversationOf();
+  const alerts = fakeAlerts();
+  const out = await runTurn(conv, deps({ anthropic: fakeAnthropic([]), alerts, staffSync: async () => true }));
+  expect(out.kind).toBe('skipped');
+  expect((await getConversation(conv))!.humanTakeoverUntil).not.toBeNull();
+  expect(alerts.leadNeedsStaff).not.toHaveBeenCalled();
 });
 
 it('first message with a tag sets the project and source', async () => {

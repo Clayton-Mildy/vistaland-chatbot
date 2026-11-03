@@ -11,6 +11,8 @@ import { handleInbound } from './router/inbound.js';
 import { conversationsAwaitingReply, getConversation } from './leads/repository.js';
 import { syncStaffReplies } from './chakra/staffSync.js';
 import { createOutboundPoller } from './outbound/poller.js';
+import { createWebPushNotifier } from './notify/push.js';
+import { createAlerts } from './notify/alerts.js';
 
 const config = getConfig();
 const vles = getVlesClient();
@@ -22,6 +24,15 @@ const chakra = createChakraClient({
 });
 const anthropic = createAnthropic();
 if (!anthropic) console.log('[moni] ANTHROPIC_API_KEY is empty - every turn will be handed to staff');
+
+// Push stays off until both VAPID keys are set.
+const alerts = createAlerts({
+  notifier:
+    config.VAPID_PUBLIC_KEY && config.VAPID_PRIVATE_KEY
+      ? createWebPushNotifier({ publicKey: config.VAPID_PUBLIC_KEY, privateKey: config.VAPID_PRIVATE_KEY, subject: config.VAPID_SUBJECT })
+      : null,
+  dashboardUrl: config.DASHBOARD_PUBLIC_URL.replace(/\/+$/, ''),
+});
 
 const debouncer = createDebouncer({
   quietMs: config.TYPING_DEBOUNCE_MS,
@@ -36,6 +47,7 @@ const debouncer = createDebouncer({
       vles,
       now: () => new Date(),
       settings: { model: config.MONI_MODEL, effort: config.MONI_EFFORT },
+      alerts,
       staffSync: config.CHAKRA_ACCESS_TOKEN ? (id) => syncStaffReplies(id, { client: chakra, now: () => new Date() }) : undefined,
     });
     const detail = out.result?.kind === 'failed' ? ` (${out.result.reason}: ${out.result.detail})` : '';
@@ -62,6 +74,6 @@ else console.log('[vles] VLES_API_KEY is empty - sync is off');
 
 if (config.OUTBOUND_POLL_MS > 0) {
   // Without a configured token every row is held rather than sent into a failing client.
-  const poller = createOutboundPoller({ chakra: config.CHAKRA_ACCESS_TOKEN ? chakra : null, now: () => new Date() });
+  const poller = createOutboundPoller({ chakra: config.CHAKRA_ACCESS_TOKEN ? chakra : null, now: () => new Date(), onFailed: (row) => alerts.outboundFailed(row) });
   poller.start(config.OUTBOUND_POLL_MS);
 } else console.log('[outbound] OUTBOUND_POLL_MS is 0 - queued WhatsApp templates are not sent');

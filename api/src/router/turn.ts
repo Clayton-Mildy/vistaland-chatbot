@@ -26,6 +26,7 @@ import {
   updateConversation,
   type Message,
 } from '../leads/repository.js';
+import type { Alerts } from '../notify/alerts.js';
 import { mediaKindFor, type Transport } from './transport.js';
 
 export type TurnDeps = {
@@ -36,6 +37,8 @@ export type TurnDeps = {
   settings: { model: string; effort: 'low' | 'medium' | 'high' };
   // Looks for replies staff typed in ChakraHQ's own inbox; true means a human is talking.
   staffSync?: (conversationId: string) => Promise<boolean>;
+  // Pushes staff when Moni hands a chat off or fails. The test chat passes none.
+  alerts?: Alerts | null;
 };
 
 export type TurnOutcome = { kind: 'replied' | 'no_reply' | 'skipped' | 'failed'; sent: number; result?: AgentTurnResult };
@@ -149,11 +152,16 @@ export async function runTurn(conversationId: string, deps: TurnDeps): Promise<T
 
   const now = deps.now();
   if (result.kind === 'failed') {
-    await setTakeover(conversationId, new Date(now.getTime() + (await takeoverHours()) * 3_600_000), 'system', `Moni gagal menjawab (${result.reason}): ${result.detail}`);
+    const reason = `Moni gagal menjawab (${result.reason}): ${result.detail}`;
+    await setTakeover(conversationId, new Date(now.getTime() + (await takeoverHours()) * 3_600_000), 'system', reason);
+    await deps.alerts?.leadNeedsStaff(lead.id, reason, 'failure');
     return { kind: 'failed', sent: 0, result };
   }
   if (result.kind === 'no_reply') {
-    if (result.handoffReason) await setTakeover(conversationId, new Date(now.getTime() + (await takeoverHours()) * 3_600_000), 'moni', result.handoffReason);
+    if (result.handoffReason) {
+      await setTakeover(conversationId, new Date(now.getTime() + (await takeoverHours()) * 3_600_000), 'moni', result.handoffReason);
+      await deps.alerts?.leadNeedsStaff(lead.id, result.handoffReason, 'handoff');
+    }
     return { kind: 'no_reply', sent: 0, result };
   }
 
@@ -212,8 +220,12 @@ export async function runTurn(conversationId: string, deps: TurnDeps): Promise<T
   if (!textSent) {
     // The customer got no answer: put the chat in front of staff.
     await setTakeover(conversationId, new Date(now.getTime() + hours * 3_600_000), 'system', 'Balasan Moni gagal terkirim');
+    await deps.alerts?.leadNeedsStaff(lead.id, 'Balasan Moni gagal terkirim', 'failure');
     return { kind: 'failed', sent, result };
   }
-  if (result.handoffReason) await setTakeover(conversationId, new Date(now.getTime() + hours * 3_600_000), 'moni', result.handoffReason);
+  if (result.handoffReason) {
+    await setTakeover(conversationId, new Date(now.getTime() + hours * 3_600_000), 'moni', result.handoffReason);
+    await deps.alerts?.leadNeedsStaff(lead.id, result.handoffReason, 'handoff');
+  }
   return { kind: 'replied', sent, result };
 }
