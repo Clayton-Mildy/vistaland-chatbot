@@ -4,6 +4,16 @@ import type { VisitRow, VisitStatus } from "@/lib/api/visits";
 const WIB_OFFSET_MS = 7 * 3_600_000;
 const DAY_MS = 86_400_000;
 
+/**
+ * A real "YYYY-MM-DD" date. The shape alone lets "2026-13-45" through, which makes the date
+ * helpers throw; Date.parse refuses it, and the round trip refuses rollovers like "2026-02-30".
+ */
+export function isCalendarDate(s: string | undefined): s is string {
+  if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const t = Date.parse(`${s}T00:00:00Z`);
+  return !Number.isNaN(t) && new Date(t).toISOString().slice(0, 10) === s;
+}
+
 /** `date` ("YYYY-MM-DD") moved by `days`. */
 export function shiftDate(date: string, days: number): string {
   return new Date(Date.parse(`${date}T00:00:00Z`) + days * DAY_MS).toISOString().slice(0, 10);

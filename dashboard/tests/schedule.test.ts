@@ -1,5 +1,5 @@
 import { it, expect } from "vitest";
-import { groupVisits, shiftDate, STATUS_STYLE, weekDates, wibClock, wibDay } from "@/lib/schedule";
+import { groupVisits, isCalendarDate, shiftDate, STATUS_STYLE, weekDates, wibClock, wibDay } from "@/lib/schedule";
 import type { VisitRow } from "@/lib/api/visits";
 
 const row = (id: string, salesAgentId: string, startsAt: string): VisitRow => ({
@@ -51,4 +51,14 @@ it("styles every visit status, striking out the ones that no longer stand", () =
   expect(STATUS_STYLE.rescheduled).toContain("line-through");
   expect(STATUS_STYLE.scheduled).toContain("blue");
   expect(STATUS_STYLE.no_show).toContain("red");
+});
+
+it("isCalendarDate accepts real dates only", () => {
+  expect(isCalendarDate("2026-11-07")).toBe(true);
+  expect(isCalendarDate("2028-02-29")).toBe(true);
+  expect(isCalendarDate("2026-13-45")).toBe(false);
+  expect(isCalendarDate("2026-02-30")).toBe(false);
+  expect(isCalendarDate("2026-1-7")).toBe(false);
+  expect(isCalendarDate("x")).toBe(false);
+  expect(isCalendarDate(undefined)).toBe(false);
 });

@@ -76,6 +76,8 @@ export function newTurnContext(input: {
   isTest: boolean;
   alerts: Alerts | null;
   activeVisit: VisitView | null;
+  // The lead's name and the contact's WhatsApp name, so addressing the customer is not a sales intro.
+  customerNames?: (string | null)[];
 }): TurnContext {
   return {
     leadId: input.leadId,
@@ -94,6 +96,7 @@ export function newTurnContext(input: {
       subsidiNotes: input.subsidiNotes,
       visitBooked: input.activeVisit !== null,
       salesNames: input.activeVisit ? [input.activeVisit.salesName] : [],
+      customerNames: (input.customerNames ?? []).filter((n): n is string => !!n),
     },
     handoffReason: null,
     simulations: [],
@@ -231,6 +234,8 @@ const handlers: Handlers = {
     let lead = await updateLeadFacts(ctx.leadId, patch, 'moni');
     // Moni may repeat the customer's own budget back to them ("budget Rp450 jt ya").
     for (const v of [i.budget_price, i.budget_monthly, i.dp_budget]) if (v !== undefined) ctx.evidence.knownAmounts.push(v);
+    // A name learned this turn may be used to address the customer ("dibantu Kak Rina?").
+    if (i.name) ctx.evidence.customerNames.push(i.name);
     if (i.stage) {
       try {
         lead = await setLeadStage(ctx.leadId, i.stage, 'moni');

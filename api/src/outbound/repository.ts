@@ -72,8 +72,11 @@ export async function markSent(id: number, waMessageId: string | null, now: Date
   await getDb().update(scheduledMessages).set({ status: 'sent', sentAt: now, waMessageId }).where(eq(scheduledMessages.id, id));
 }
 
-export async function markCancelled(id: number): Promise<void> {
-  await getDb().update(scheduledMessages).set({ status: 'cancelled' }).where(eq(scheduledMessages.id, id));
+export async function markCancelled(id: number, reason?: string): Promise<void> {
+  await getDb()
+    .update(scheduledMessages)
+    .set({ status: 'cancelled', ...(reason ? { lastError: reason } : {}) })
+    .where(eq(scheduledMessages.id, id));
 }
 
 /** Counts a failed try. The third one fails the row for good; before that it is retried later. */

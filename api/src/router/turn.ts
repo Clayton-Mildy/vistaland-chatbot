@@ -129,6 +129,7 @@ export async function runTurn(conversationId: string, deps: TurnDeps): Promise<T
       isTest: contact.isTest,
       alerts: deps.alerts ?? null,
       activeVisit,
+      customerNames: [freshLead.name, contact.displayName],
     });
     ctx.evidence.knownAmounts.push(...collectAmounts(`${facts}\n${leadState}`));
 

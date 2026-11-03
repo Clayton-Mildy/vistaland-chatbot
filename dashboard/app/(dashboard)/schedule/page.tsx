@@ -3,13 +3,12 @@ import { listVisits, type VisitRow } from "@/lib/api/visits";
 import { listProjects } from "@/lib/api/catalog";
 import { listRoster } from "@/lib/api/roster";
 import { sessionUser } from "@/lib/session";
-import { dayLabel, groupVisits, shiftDate, STATUS_STYLE, weekDates, wibClock, wibDay } from "@/lib/schedule";
+import { dayLabel, groupVisits, isCalendarDate, shiftDate, STATUS_STYLE, weekDates, wibClock, wibDay } from "@/lib/schedule";
 
 export const dynamic = "force-dynamic";
 
 type Params = { view?: string; date?: string; projectId?: string; salesAgentId?: string };
 const select = "h-9 rounded border border-slate-300 px-2 text-sm";
-const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 function Chip({ v }: { v: VisitRow }) {
   return (
@@ -26,7 +25,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
   const isAdmin = user.role === "admin";
   const view = f.view === "day" ? "day" : "week";
   const today = wibDay(new Date().toISOString());
-  const date = f.date && DATE.test(f.date) ? f.date : today;
+  const date = isCalendarDate(f.date) ? f.date : today;
   const dates = view === "week" ? weekDates(date) : [date];
 
   const [{ visits, outbound }, projects, roster] = await Promise.all([

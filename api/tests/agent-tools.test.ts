@@ -122,6 +122,13 @@ it('update_lead makes the customer\'s own budget quotable this turn', async () =
   expect(c.evidence.knownAmounts).toEqual(expect.arrayContaining([450_000_000, 3_500_000]));
 });
 
+it("the customer's names are evidence, including one learned this turn", async () => {
+  const c = ctx({ customerNames: [null, 'Sari W', ''] });
+  expect(c.evidence.customerNames).toEqual(['Sari W']);
+  await runTool('update_lead', { name: 'Rina' }, c);
+  expect(c.evidence.customerNames).toEqual(['Sari W', 'Rina']);
+});
+
 // ─── visits ────────────────────────────────────────────────────────────────
 
 /** Saturday gallery hours at Zetira and one agent (with a dashboard account) working them. */

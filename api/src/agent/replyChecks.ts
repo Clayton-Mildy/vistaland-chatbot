@@ -13,6 +13,8 @@ export type ReplyEvidence = {
   visitBooked: boolean;
   // Sales names the visit tools returned; the only ones Moni may introduce.
   salesNames: string[];
+  // The lead's own name and the contact's WhatsApp name: "dibantu Kak Rina?" addresses the customer.
+  customerNames: string[];
 };
 
 const PROMISES = [/(pasti|dijamin|100%)\s*(di-?)?(setujui|acc|lolos|approve)/i, /kpr(-?nya)?\s+(pasti|dijamin)/i];
@@ -37,6 +39,10 @@ const BOOKING_CLAIMS = [
 // Case-sensitive on "Kak" and the capital, so "bisa dibantu kak untuk ..." is not a name.
 const SALES_INTRO = /dibantu\s+(?:oleh\s+)?Kak\s+(\p{Lu}[\p{L}'-]+)/gu;
 
+const words = (names: string[]) => names.flatMap((n) => n.toLowerCase().split(/[^\p{L}'-]+/u)).filter(Boolean);
+/** "Rizki" (or "Riz") matches "Muhammad Rizki": the name starts one of the known words. */
+const matchesAnyWord = (name: string, known: string[]) => known.some((w) => w.startsWith(name.toLowerCase()));
+
 export function checkReply(text: string, ev: ReplyEvidence): { ok: true } | { ok: false; problems: string[] } {
   const problems: string[] = [];
 
@@ -60,9 +66,11 @@ export function checkReply(text: string, ev: ReplyEvidence): { ok: true } | { ok
   if (!ev.visitBooked && BOOKING_CLAIMS.some((re) => re.test(text))) {
     problems.push('Jangan menyatakan kunjungan sudah terjadwal sebelum book_visit berhasil.');
   }
-  const known = ev.salesNames.map((n) => n.toLowerCase());
+  const sales = words(ev.salesNames);
+  const customer = words(ev.customerNames);
   for (const [, name] of text.matchAll(SALES_INTRO)) {
-    if (!known.some((n) => n.startsWith(name!.toLowerCase()))) problems.push(`Nama sales "${name}" tidak berasal dari book_visit.`);
+    if (matchesAnyWord(name!, customer) || matchesAnyWord(name!, sales)) continue;
+    problems.push(`Nama sales "${name}" tidak berasal dari book_visit.`);
   }
 
   return problems.length === 0 ? { ok: true } : { ok: false, problems };

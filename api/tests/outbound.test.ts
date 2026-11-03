@@ -3,7 +3,10 @@ import { eq, sql } from 'drizzle-orm';
 import { truncate } from './helpers/db.js';
 import { buildApp } from '../src/app.js';
 import { getDb } from '../src/db/client.js';
-import { scheduledMessages } from '../src/db/schema/index.js';
+import { scheduledMessages, visits } from '../src/db/schema/index.js';
+import { seedProjects } from './helpers/vles.js';
+import { listProjects } from '../src/repositories/projects.js';
+import { createAgent } from '../src/scheduling/roster.js';
 import { ensureConversation, ensureLead, optOut, upsertContact } from '../src/leads/repository.js';
 import { updateAppSettings } from '../src/settings/appSettings.js';
 import { cancelPending, dueRows, enqueue, markAttemptFailed, markSent, outboundSummary, type NewOutbound } from '../src/outbound/repository.js';
@@ -208,6 +211,49 @@ it('a sales alert goes out even when the lead contact has opted out', async () =
   await enqueue(getDb(), [row()]);
   expect(await createOutboundPoller({ chakra, now: () => T0 }).runOnce()).toMatchObject({ sent: 1 });
   expect(sent).toHaveLength(1);
+});
+
+it('a sales alert held past its visit start, or for over 24 hours, is cancelled as stale instead of sent', async () => {
+  // Truncating projects cascades to the lead, so it is made again.
+  await truncate('projects', 'sales_agents', 'contacts');
+  await seedProjects();
+  const c = await upsertContact('6281234567890', 'Sari');
+  await ensureConversation(c.id, 'PNID-CONV');
+  leadId = (await ensureLead(c.id)).id;
+  const project = (await listProjects())[0]!;
+  const agent = await createAgent({ name: 'Rina', waPhone: '6281999000111', staffUserId: null, projectIds: [project.id] });
+  // One active visit per lead, so each visit gets its own lead.
+  const visitAt = async (phone: string, startsAt: Date) => {
+    const visitLead = await ensureLead((await upsertContact(phone, null)).id);
+    const [v] = await getDb()
+      .insert(visits)
+      .values({ leadId: visitLead.id, projectId: project.id, salesAgentId: agent.id, startsAt, endsAt: new Date(startsAt.getTime() + 60 * MIN), createdBy: 'moni' })
+      .returning();
+    return v!.id;
+  };
+  const past = await visitAt('6281200000001', new Date(T0.getTime() + 60 * MIN));
+  const future = await visitAt('6281200000002', new Date(T0.getTime() + 3 * 24 * 60 * MIN));
+  await enqueue(getDb(), [
+    row({ dedupeKey: 'past', visitId: past }),
+    row({ dedupeKey: 'future', visitId: future }),
+    row({ dedupeKey: 'old' }),
+  ]);
+  // Held at T0: no template yet.
+  const { chakra, sent } = fakeChakra();
+  expect(await createOutboundPoller({ chakra, now: () => T0 }).runOnce()).toEqual({ sent: 0, held: 3, failed: 0 });
+
+  // The template is approved two hours later: the first visit has started by then.
+  const later = new Date(T0.getTime() + 120 * MIN);
+  await getDb().update(scheduledMessages).set({ createdAt: T0 }).where(sql`dedupe_key in ('past', 'future')`);
+  await getDb().update(scheduledMessages).set({ createdAt: new Date(later.getTime() - 25 * 60 * MIN) }).where(eq(scheduledMessages.dedupeKey, 'old'));
+  await updateAppSettings({ salesAlertTemplate: { name: 'sales_alert_v1', language: 'id' } });
+  expect(await createOutboundPoller({ chakra, now: () => later }).runOnce()).toEqual({ sent: 1, held: 0, failed: 0 });
+  expect(sent).toHaveLength(1);
+  expect((await all()).map((r) => [r.dedupeKey, r.status, r.lastError])).toEqual([
+    ['past', 'cancelled', 'stale'],
+    ['future', 'sent', null],
+    ['old', 'cancelled', 'stale'],
+  ]);
 });
 
 it('optOut cancels pending customer notices but not sales alerts', async () => {

@@ -1,11 +1,13 @@
 import { eq } from 'drizzle-orm';
 import { getDb } from '../db/client.js';
-import { contacts, conversations, leads } from '../db/schema/index.js';
+import { contacts, conversations, leads, visits } from '../db/schema/index.js';
 import { getAppSettings, type AppSettings, type TemplateRef } from '../settings/appSettings.js';
 import type { ChakraClient } from '../chakra/client.js';
 import { CUSTOMER_KINDS, dueRows, markAttemptFailed, markCancelled, markSent, type OutboundRow } from './repository.js';
 
 const PASS_LIMIT = 50;
+// A sales alert held this long (say, until the template was approved) is no longer news.
+const SALES_ALERT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 export type OutboundPollerDeps = {
   chakra: ChakraClient | null;
@@ -36,6 +38,15 @@ async function leadContext(leadId: string | null): Promise<{ optedOut: boolean; 
   return { optedOut: r?.optedOutAt != null, phoneNumberId: r?.phoneNumberId ?? null };
 }
 
+/** A sales alert for a visit that has already started, or one queued over a day ago, must not go out. */
+async function staleSalesAlert(row: OutboundRow, now: Date): Promise<boolean> {
+  if (row.kind !== 'sales_alert') return false;
+  if (now.getTime() - row.createdAt.getTime() > SALES_ALERT_MAX_AGE_MS) return true;
+  if (!row.visitId) return false;
+  const [v] = await getDb().select({ startsAt: visits.startsAt }).from(visits).where(eq(visits.id, row.visitId));
+  return v != null && v.startsAt.getTime() <= now.getTime();
+}
+
 export function createOutboundPoller(deps: OutboundPollerDeps): {
   runOnce(): Promise<OutboundPass>;
   start(intervalMs: number): () => void;
@@ -55,6 +66,10 @@ export function createOutboundPoller(deps: OutboundPollerDeps): {
     const ctx = await leadContext(row.leadId);
     if (CUSTOMER_KINDS.includes(row.kind) && ctx.optedOut) {
       await markCancelled(row.id);
+      return;
+    }
+    if (await staleSalesAlert(row, now)) {
+      await markCancelled(row.id, 'stale');
       return;
     }
     const template = templateFor(row.kind, settings);

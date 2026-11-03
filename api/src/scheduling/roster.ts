@@ -143,7 +143,7 @@ export async function updateAgent(
 
   try {
     return await getDb().transaction(async (tx) => {
-      // Lock the agent row before checking, so a booking (which takes FOR SHARE on it) cannot slip
+      // Lock the agent row before checking, so a booking (which takes FOR NO KEY UPDATE on it) cannot slip
       // in between the visit count and our write.
       const [current] = await tx.select().from(salesAgents).where(eq(salesAgents.id, id)).limit(1).for('update');
       if (!current) return null;

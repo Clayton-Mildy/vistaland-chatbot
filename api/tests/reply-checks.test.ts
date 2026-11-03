@@ -24,6 +24,7 @@ const ev = (o: Partial<ReplyEvidence> = {}): ReplyEvidence => ({
   subsidiNotes: null,
   visitBooked: false,
   salesNames: [],
+  customerNames: [],
   ...o,
 });
 
@@ -103,4 +104,26 @@ it('"dibantu oleh Kak Budi" passes when Budi was booked and fails when Sari was'
     problems: ['Nama sales "Budi" tidak berasal dari book_visit.'],
   });
   expect(checkReply('Kakak akan dibantu Kak Budi ya', ev()).ok).toBe(false);
+});
+
+it("addressing the customer by name after 'dibantu' is not a sales introduction", () => {
+  expect(checkReply('Ada yang bisa dibantu Kak Rina?', ev({ customerNames: ['Rina'] })).ok).toBe(true);
+  expect(checkReply('Ada yang bisa dibantu Kak Rina?', ev({ customerNames: ['rina wati'] })).ok).toBe(true);
+  expect(checkReply('Ada yang bisa dibantu Kak Rina?', ev({ customerNames: ['Ibu Rina 🌸'] })).ok).toBe(true);
+  expect(checkReply('Ada yang bisa dibantu Kak Rina?', ev()).ok).toBe(false);
+});
+
+it('a sales person may be introduced by any word of their name', () => {
+  const booked = ev({ visitBooked: true, salesNames: ['Muhammad Rizki'] });
+  expect(checkReply('Nanti Kakak dibantu Kak Rizki ya', booked).ok).toBe(true);
+  expect(checkReply('Nanti Kakak dibantu Kak Muhammad ya', booked).ok).toBe(true);
+  expect(checkReply('Nanti Kakak dibantu Kak Riz ya', booked).ok).toBe(true);
+  expect(checkReply('Nanti Kakak dibantu Kak Hamad ya', booked).ok).toBe(false);
+});
+
+it('"dibantu oleh Kak Sari" still fails when only Budi was booked and Sari is not the customer', () => {
+  expect(checkReply('Nanti Kakak dibantu oleh Kak Sari ya', ev({ visitBooked: true, salesNames: ['Budi Santoso'], customerNames: ['Rina'] }))).toEqual({
+    ok: false,
+    problems: ['Nama sales "Sari" tidak berasal dari book_visit.'],
+  });
 });
