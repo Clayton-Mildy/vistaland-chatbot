@@ -22,6 +22,8 @@ const ev = (o: Partial<ReplyEvidence> = {}): ReplyEvidence => ({
   toolsCalled: new Set(),
   verifiedUnitNumbers: [],
   subsidiNotes: null,
+  visitBooked: false,
+  salesNames: [],
   ...o,
 });
 
@@ -77,4 +79,28 @@ it('recognises "blok X nomor N" as a unit number', () => {
   expect(checkReply('Unit blok D3 nomor 15 masih tersedia', ev()).ok).toBe(false);
   expect(checkReply('Unit blok D3 nomor 15 masih tersedia', ev({ verifiedUnitNumbers: ['D3/15'] })).ok).toBe(true);
   expect(checkReply('Ada di blok E6 no. 1 Kak', ev({ verifiedUnitNumbers: ['E6/01'] })).ok).toBe(true);
+});
+
+it('"Jadwal Kakak sudah terjadwal" without a booking is rejected', () => {
+  const problem = 'Jangan menyatakan kunjungan sudah terjadwal sebelum book_visit berhasil.';
+  expect(checkReply('Jadwal Kakak sudah terjadwal ya, Sabtu jam 10.00', ev())).toEqual({ ok: false, problems: [problem] });
+  expect(checkReply('Kunjungannya sudah Moni jadwalkan Kak', ev()).ok).toBe(false);
+  expect(checkReply('Siap Kak, jadwalnya sudah fix ya', ev()).ok).toBe(false);
+  expect(checkReply('Jadwal Kakak sudah terjadwal ya, Sabtu jam 10.00', ev({ visitBooked: true })).ok).toBe(true);
+});
+
+it('"Moni catat kunjungannya ya" and "Kalau Kakak sudah konfirmasi, Moni jadwalkan ya" before booking pass', () => {
+  expect(checkReply('Baik Kak, Moni catat kunjungannya ya 😊', ev()).ok).toBe(true);
+  expect(checkReply('Kalau Kakak sudah konfirmasi, Moni jadwalkan ya', ev()).ok).toBe(true);
+  expect(checkReply('Untuk detailnya bisa dibantu kak untuk tanya ke tim ya', ev()).ok).toBe(true);
+});
+
+it('"dibantu oleh Kak Budi" passes when Budi was booked and fails when Sari was', () => {
+  const text = 'Nanti Kakak dibantu oleh Kak Budi di lokasi ya';
+  expect(checkReply(text, ev({ visitBooked: true, salesNames: ['Budi Santoso'] })).ok).toBe(true);
+  expect(checkReply(text, ev({ visitBooked: true, salesNames: ['Sari Wulandari'] }))).toEqual({
+    ok: false,
+    problems: ['Nama sales "Budi" tidak berasal dari book_visit.'],
+  });
+  expect(checkReply('Kakak akan dibantu Kak Budi ya', ev()).ok).toBe(false);
 });

@@ -3,7 +3,7 @@ import type { VlesClient } from '../vles/client.js';
 import type { AnthropicLike } from '../agent/claude.js';
 import { runAgentTurn, type AgentTurnResult } from '../agent/loop.js';
 import { newTurnContext } from '../agent/executor.js';
-import { buildSystemBlocks, nowWibLabel } from '../agent/prompt.js';
+import { buildSystemBlocks, calendarWib, nowWibLabel } from '../agent/prompt.js';
 import { collectAmounts } from '../agent/rupiah.js';
 import { getAppSettings } from '../settings/appSettings.js';
 import { currentPrompt } from '../repositories/promptVersions.js';
@@ -27,6 +27,7 @@ import {
   type Message,
 } from '../leads/repository.js';
 import type { Alerts } from '../notify/alerts.js';
+import { activeVisitForLead } from '../scheduling/visits.js';
 import { mediaKindFor, type Transport } from './transport.js';
 
 export type TurnDeps = {
@@ -110,9 +111,12 @@ export async function runTurn(conversationId: string, deps: TurnDeps): Promise<T
 
     const freshLead = (await getLeadByContact(conv.contactId))!;
     const project = freshLead.currentProjectId ? await getProject(freshLead.currentProjectId) : null;
-    const today = todayWib(deps.now());
+    const now = deps.now();
+    const today = todayWib(now);
     const facts = await buildProjectFacts(project?.id ?? null, today);
-    const leadState = buildLeadState(freshLead, await listEvents(freshLead.id));
+    // Read on every run, so a booking made by a superseded run shows in the rerun.
+    const activeVisit = await activeVisitForLead(freshLead.id);
+    const leadState = buildLeadState(freshLead, await listEvents(freshLead.id), activeVisit);
     const prompt = await currentPrompt();
     const ctx = newTurnContext({
       leadId: freshLead.id,
@@ -121,6 +125,10 @@ export async function runTurn(conversationId: string, deps: TurnDeps): Promise<T
       vles: deps.vles,
       today,
       subsidiNotes: project?.subsidiNotes ?? null,
+      now,
+      isTest: contact.isTest,
+      alerts: deps.alerts ?? null,
+      activeVisit,
     });
     ctx.evidence.knownAmounts.push(...collectAmounts(`${facts}\n${leadState}`));
 
@@ -131,7 +139,8 @@ export async function runTurn(conversationId: string, deps: TurnDeps): Promise<T
           persona: project?.personaTeamName ?? app.personaGroupName,
           projectFacts: facts,
           leadState,
-          nowWib: nowWibLabel(deps.now()),
+          nowWib: nowWibLabel(now),
+          calendar: calendarWib(now, 14),
         }),
         history: toHistory(earlier),
         latest: batch.map(asText).join('\n'),

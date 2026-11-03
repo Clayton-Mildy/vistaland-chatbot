@@ -2,12 +2,16 @@ import type Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
 import { MATERIAL_KINDS } from '../db/schema/index.js';
 import { MONI_SETTABLE_STAGES } from '../leads/stages.js';
+import { PARTS_OF_DAY } from '../scheduling/slots.js';
 
 // Moni's tools. Inputs are validated with these zod schemas in our code (TOOL_INPUTS); the JSON
 // schemas the model sees are written to match. Order is fixed so the prompt cache stays warm.
 
 const project = z.string().min(1);
 const int = z.number().int();
+// WIB calendar date and wall-clock time; checked strictly because the slot code trusts them.
+const date = z.iso.date();
+const time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'format HH:MM');
 
 export const TOOL_INPUTS = {
   search_units: z.object({
@@ -48,6 +52,22 @@ export const TOOL_INPUTS = {
     stage: z.enum(MONI_SETTABLE_STAGES).optional(),
     lost_reason: z.string().min(1).optional(),
   }),
+  find_visit_slots: z.object({
+    project,
+    date_from: date,
+    date_to: date.optional(),
+    part_of_day: z.enum(PARTS_OF_DAY).optional(),
+    time: time.optional(),
+  }),
+  book_visit: z.object({
+    project,
+    date,
+    time,
+    type_interest: z.array(int).optional(),
+    topics: z.string().min(1).optional(),
+  }),
+  reschedule_visit: z.object({ date, time }),
+  cancel_visit: z.object({ reason: z.string().min(1) }),
   handoff_to_human: z.object({ reason: z.string().min(1) }),
   opt_out: z.object({}),
   respond_to_customer: z.object({
@@ -60,6 +80,8 @@ export const TOOL_INPUTS = {
 export type ToolName = keyof typeof TOOL_INPUTS;
 
 const projectProp = { type: 'string', description: 'Slug proyek, misalnya "zetira". Lihat blok PROYEK.' };
+const dateProp = { type: 'string', description: 'Tanggal WIB "YYYY-MM-DD", dari baris KALENDER.' };
+const timeProp = { type: 'string', description: 'Jam WIB "HH:MM", misalnya "10:00".' };
 const typeProp = { type: 'integer', description: 'ID tipe rumah VLES (angka "id" di blok PROYEK atau hasil search_units).' };
 
 const t = (name: ToolName, description: string, properties: Record<string, unknown>, required: string[] = []): Anthropic.Beta.BetaTool => ({
@@ -111,6 +133,27 @@ export const MONI_TOOLS: Anthropic.Beta.BetaTool[] = [
     stage: { type: 'string', enum: [...MONI_SETTABLE_STAGES] },
     lost_reason: { type: 'string' },
   }),
+  t('find_visit_slots', 'Cari jam kunjungan yang masih kosong di proyek, paling jauh 14 hari dari date_from. Hasil: slots berisi date, time, dan label untuk ditawarkan. Jika kosong, hasil memuat reason dan message yang menjelaskan langkah berikutnya.', {
+    project: projectProp,
+    date_from: dateProp,
+    date_to: { ...dateProp, description: 'Tanggal terakhir yang dicari, "YYYY-MM-DD". Default sama dengan date_from.' },
+    part_of_day: { type: 'string', enum: [...PARTS_OF_DAY], description: 'Bagian hari yang diminta konsumen.' },
+    time: { ...timeProp, description: 'Jam yang diminta konsumen, "HH:MM"; slot terdekat didahulukan.' },
+  }, ['project', 'date_from']),
+  t('book_visit', 'Jadwalkan kunjungan pada slot dari find_visit_slots, hanya setelah konsumen mengiyakan hari, jam, dan lokasinya. Hasil: label jadwal, nama sales pendamping, dan link Maps.', {
+    project: projectProp,
+    date: dateProp,
+    time: timeProp,
+    type_interest: { type: 'array', items: { type: 'integer' }, description: 'ID tipe yang ingin dilihat. Default: tipe yang diminati di STATUS LEAD.' },
+    topics: { type: 'string', description: 'Hal yang ingin dibahas konsumen saat kunjungan, misalnya "simulasi KPR".' },
+  }, ['project', 'date', 'time']),
+  t('reschedule_visit', 'Pindahkan kunjungan aktif konsumen (lihat STATUS LEAD) ke slot lain dari find_visit_slots. Hasil sama seperti book_visit.', {
+    date: dateProp,
+    time: timeProp,
+  }, ['date', 'time']),
+  t('cancel_visit', 'Batalkan kunjungan aktif konsumen (lihat STATUS LEAD).', {
+    reason: { type: 'string', description: 'Alasan pembatalan dari konsumen.' },
+  }, ['reason']),
   t('handoff_to_human', 'Serahkan percakapan ke tim sales: Moni berhenti membalas sampai tim selesai. Tetap kirim pesan singkat ke konsumen lewat respond_to_customer.', {
     reason: { type: 'string', description: 'Alasan singkat, misalnya "jadwal kunjungan" atau "minta nego harga".' },
   }, ['reason']),

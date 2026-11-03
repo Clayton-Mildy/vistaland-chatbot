@@ -24,10 +24,10 @@ beforeEach(async () => {
 });
 
 const settings = { model: 'claude-opus-5-5', effort: 'medium' as const };
-const system = buildSystemBlocks({ flowText: 'FLOW', persona: 'tim Zetira', projectFacts: 'PROYEK: Zetira', leadState: 'STATUS LEAD: new', nowWib: 'Jumat, 30 Oktober 2026 10.00 WIB' });
+const system = buildSystemBlocks({ flowText: 'FLOW', persona: 'tim Zetira', projectFacts: 'PROYEK: Zetira', leadState: 'STATUS LEAD: new', nowWib: 'Jumat, 30 Oktober 2026 10.00 WIB', calendar: 'KALENDER: Jum 2026-10-30' });
 const turn = (client: ReturnType<typeof fakeAnthropic> | null) =>
   runAgentTurn(
-    { system, history: [], latest: 'Halo, harganya berapa?', ctx: newTurnContext({ leadId: lead.id, contactId, projectId: zetira.id, vles: null, today: '2026-10-30', subsidiNotes: null }), settings },
+    { system, history: [], latest: 'Halo, harganya berapa?', ctx: newTurnContext({ leadId: lead.id, contactId, projectId: zetira.id, vles: null, today: '2026-10-30', subsidiNotes: null, now: new Date('2026-10-30T03:00:00Z'), isTest: false, alerts: null, activeVisit: null }), settings },
     client
   );
 const respond = (message: string, extra: Record<string, unknown> = {}) => tool('respond_to_customer', { message, no_reply: false, ...extra });

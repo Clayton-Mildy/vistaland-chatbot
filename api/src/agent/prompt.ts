@@ -11,12 +11,14 @@ export function buildSystemBlocks(input: {
   projectFacts: string;
   leadState: string;
   nowWib: string;
+  // calendarWib(now, 14): the next two weeks' dates, so Moni never computes a weekday herself.
+  calendar: string;
 }): Anthropic.Beta.BetaTextBlockParam[] {
   return [
     { type: 'text', text: `${SYSTEM_RULES}\n\n# FLOW MONI\n${input.flowText}`, cache_control: { type: 'ephemeral', ttl: '1h' } },
-    { type: 'text', text: `PERSONA: ${input.persona}\nWAKTU: ${input.nowWib}\n\n${input.projectFacts}` },
+    { type: 'text', text: `PERSONA: ${input.persona}\nWAKTU: ${input.nowWib}\n${input.calendar}\n\n${input.projectFacts}` },
     { type: 'text', text: input.leadState },
   ];
 }
 
-export { wibLabel as nowWibLabel } from '../scheduling/time.js';
+export { wibLabel as nowWibLabel, calendarWib } from '../scheduling/time.js';

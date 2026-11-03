@@ -1,4 +1,5 @@
 import { it, expect, beforeEach, vi } from 'vitest';
+import { eq } from 'drizzle-orm';
 import { truncate } from './helpers/db.js';
 import { seedProjects, seedUnits, unit } from './helpers/vles.js';
 import { reply, tool, fakeAnthropic } from './helpers/agent.js';
@@ -24,13 +25,18 @@ import { handleInbound } from '../src/router/inbound.js';
 import { runTurn, type TurnDeps } from '../src/router/turn.js';
 import type { Alerts } from '../src/notify/alerts.js';
 import { conversationsAwaitingReply, insertOutbound } from '../src/leads/repository.js';
+import { getDb } from '../src/db/client.js';
+import { projects } from '../src/db/schema/index.js';
+import { createAgent, setAvailability } from '../src/scheduling/roster.js';
+import { atWib } from '../src/scheduling/time.js';
+import { bookVisit } from '../src/scheduling/visits.js';
 
 let zetira: Project;
 let seq = 0;
 const PHONE = '6281234567890';
 
 beforeEach(async () => {
-  await truncate('projects', 'vles_units', 'materials', 'contacts', 'channel_tags', 'app_settings');
+  await truncate('projects', 'vles_units', 'materials', 'contacts', 'channel_tags', 'app_settings', 'sales_agents', 'scheduled_messages');
   await seedProjects();
   zetira = (await listProjects()).find((p) => p.slug === 'zetira')!;
   await seedUnits([unit({ id: 1, project_id: 5, area_id: 37, house_type_id: 500, is_available_for_sale: true, deleted: false, selling_price: 400_000_000 })]);
@@ -354,4 +360,61 @@ it('a failed Moni send is not replayed as something Moni said', async () => {
   await runTurn(conv, deps({ anthropic: client }));
   const sent = client.params[0]!['messages'] as { role: string; content: string }[];
   expect(sent).toEqual([{ role: 'user', content: 'q1\nq2' }]);
+});
+
+// ─── visits in the prompt ──────────────────────────────────────────────────
+
+// Monday 2026-11-02, 10.00 WIB.
+const MONDAY = new Date('2026-11-02T03:00:00Z');
+const systemOf = (client: ReturnType<typeof fakeAnthropic>, call: number) => (client.params[call]!['system'] as { text: string }[]).map((b) => b.text);
+
+/** Saturday gallery hours at Zetira and Budi working them. */
+async function rosterZetira() {
+  await getDb().update(projects).set({ galleryHours: { '6': ['09:00', '17:00'] }, visitMinutes: 60, sameDayMinNoticeMinutes: 120 }).where(eq(projects.id, zetira.id));
+  const agent = await createAgent({ name: 'Budi', waPhone: '6281000002', staffUserId: null, projectIds: [zetira.id] });
+  await setAvailability(agent.id, [{ projectId: zetira.id, weekday: 6, start: '09:00', end: '17:00' }]);
+}
+
+it('the time block lists the next 14 days with weekday names', async () => {
+  await handleInbound(msg('halo'), { debouncer: stubDebouncer(), transport: () => recordingTransport(), now: () => new Date() });
+  const conv = await conversationOf();
+  const client = fakeAnthropic([respond('Halo Kak')]);
+  await runTurn(conv, deps({ anthropic: client, now: () => MONDAY }));
+  const [rules, time] = systemOf(client, 0);
+  expect(time).toContain('WAKTU: Senin, 2 November 2026 10.00 WIB\nKALENDER: Sen 2026-11-02, Sel 2026-11-03,');
+  expect(time).toContain('Min 2026-11-15\n\n');
+  expect(time).not.toContain('2026-11-16');
+  expect(rules).not.toContain('KALENDER:');
+});
+
+it('the lead state shows the active visit', async () => {
+  await rosterZetira();
+  await handleInbound(msg('halo'), { debouncer: stubDebouncer(), transport: () => recordingTransport(), now: () => new Date() });
+  const conv = await conversationOf();
+  const lead = (await getLeadByContact((await getConversation(conv))!.contactId))!;
+  const booked = await bookVisit({ leadId: lead.id, projectId: zetira.id, startsAt: atWib('2026-11-07', '10:00'), typeInterest: [], topics: null, actor: 'moni', isTest: false }, MONDAY);
+  expect(booked.ok).toBe(true);
+  const client = fakeAnthropic([respond('Sampai ketemu Sabtu, Kakak dibantu oleh Kak Budi ya')]);
+  const out = await runTurn(conv, deps({ anthropic: client, now: () => MONDAY }));
+  expect(out.kind).toBe('replied');
+  expect(systemOf(client, 0)[2]).toContain(`KUNJUNGAN AKTIF: Sabtu, 7 November 2026 10.00 WIB di ${zetira.displayName} dengan Kak Budi (status scheduled)`);
+});
+
+it("a superseded run's booking shows in the rerun's lead state", async () => {
+  await rosterZetira();
+  await handleInbound(msg('Sabtu jam 10 ya'), { debouncer: stubDebouncer(), transport: () => recordingTransport(), now: () => new Date() });
+  const conv = await conversationOf();
+  const transport = recordingTransport();
+  const client = fakeAnthropic([
+    async () => {
+      await insertInbound(conv, { waMessageId: 'wamid.mid', kind: 'text', body: 'oh iya, saya bawa istri', createdAt: new Date() });
+      return reply([tool('book_visit', { project: 'zetira', date: '2026-11-07', time: '10:00' })]);
+    },
+    respond('Draft lama'),
+    respond('Sudah terjadwal Kak, sampai ketemu Sabtu bersama istri'),
+  ]);
+  await runTurn(conv, deps({ anthropic: client, transport, now: () => MONDAY }));
+  expect(systemOf(client, 0)[2]).not.toContain('KUNJUNGAN AKTIF');
+  expect(systemOf(client, 2)[2]).toContain('KUNJUNGAN AKTIF: Sabtu, 7 November 2026 10.00 WIB');
+  expect(transport.sent).toEqual([{ kind: 'text', body: 'Sudah terjadwal Kak, sampai ketemu Sabtu bersama istri' }]);
 });

@@ -7,6 +7,12 @@ import type { AnthropicLike } from '../src/agent/claude.js';
 import { createStaff } from '../src/repositories/staff.js';
 import { upsertContact } from '../src/leads/repository.js';
 import type { ChakraClient } from '../src/chakra/client.js';
+import { eq } from 'drizzle-orm';
+import { getDb } from '../src/db/client.js';
+import { projects, scheduledMessages, visits } from '../src/db/schema/index.js';
+import { listProjects } from '../src/repositories/projects.js';
+import { createAgent, setAvailability } from '../src/scheduling/roster.js';
+import { addDays, wibDate } from '../src/scheduling/time.js';
 
 const auth = { authorization: 'Bearer test-secret-test-secret-test-secret-00' };
 let staffId: string;
@@ -20,7 +26,7 @@ const chakra: ChakraClient = {
 };
 
 beforeEach(async () => {
-  await truncate('projects', 'contacts', 'staff_users', 'app_settings', 'prompt_versions');
+  await truncate('projects', 'contacts', 'staff_users', 'app_settings', 'prompt_versions', 'sales_agents', 'scheduled_messages');
   chakraCalls.length = 0;
   await seedProjects();
   staffId = (await createStaff({ email: 'a@vista.id', password: 'correct-horse-1', displayName: 'A', role: 'admin' })).id;
@@ -65,4 +71,26 @@ it('validates the staff id and the text', async () => {
   const a = app(null);
   expect((await a.inject({ method: 'POST', url: '/api/v1/test-chat/not-a-uuid/messages', headers: auth, payload: { text: 'x' } })).statusCode).toBe(400);
   expect((await a.inject({ method: 'POST', url: `/api/v1/test-chat/${staffId}/messages`, headers: auth, payload: { text: '' } })).statusCode).toBe(400);
+});
+
+it('a test-chat booking stores a test visit and queues no WhatsApp alert', async () => {
+  // The test chat runs on the real clock: open the gallery every day and book two days ahead.
+  const zetira = (await listProjects()).find((p) => p.slug === 'zetira')!.id;
+  const everyDay = Object.fromEntries([1, 2, 3, 4, 5, 6, 7].map((d) => [String(d), ['09:00', '17:00']]));
+  await getDb().update(projects).set({ galleryHours: everyDay }).where(eq(projects.id, zetira));
+  const agent = await createAgent({ name: 'Budi', waPhone: '6281000002', staffUserId: null, projectIds: [zetira] });
+  await setAvailability(agent.id, [1, 2, 3, 4, 5, 6, 7].map((weekday) => ({ projectId: zetira, weekday, start: '09:00', end: '17:00' })));
+  const date = addDays(wibDate(new Date()), 2);
+
+  const a = app(fakeAnthropic([
+    reply([tool('book_visit', { project: 'zetira', date, time: '10:00' })]),
+    reply([tool('respond_to_customer', { message: 'Sudah terjadwal Kak, nanti dibantu oleh Kak Budi ya', no_reply: false })]),
+  ]));
+  const res = await a.inject({ method: 'POST', url: `/api/v1/test-chat/${staffId}/messages`, headers: auth, payload: { text: 'Oke Kak, sesuai' } });
+  expect(res.json().data).toMatchObject({ outcome: 'replied', lead: { stage: 'visit_scheduled' } });
+  const stored = await getDb().select().from(visits);
+  expect(stored).toHaveLength(1);
+  expect(stored[0]).toMatchObject({ isTest: true, salesAgentId: agent.id });
+  expect(await getDb().select().from(scheduledMessages)).toEqual([]);
+  expect(chakraCalls).toEqual([]);
 });
