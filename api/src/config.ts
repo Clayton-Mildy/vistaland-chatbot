@@ -34,6 +34,16 @@ const envSchema = z.object({
   TRUST_PROXY_HOPS: z.coerce.number().int().min(0).default(0),
   // Per client IP, for the public /media files. 0 turns the limit off.
   MEDIA_RATE_LIMIT_PER_MIN: z.coerce.number().int().min(0).default(600),
+  // How often the outbox sends due messages. 0 turns it off.
+  OUTBOUND_POLL_MS: z.coerce.number().int().min(0).default(60_000),
+  // How often stale lead summaries are refreshed. 0 turns it off.
+  SUMMARY_REFRESH_MS: z.coerce.number().int().min(0).default(600_000),
+  // Web push to staff. Push is off while either key is empty.
+  VAPID_PUBLIC_KEY: z.string().default(''),
+  VAPID_PRIVATE_KEY: z.string().default(''),
+  VAPID_SUBJECT: z.string().default('mailto:admin@localhost'),
+  // Where a push notification or alert link opens the dashboard.
+  DASHBOARD_PUBLIC_URL: z.string().url().default('http://localhost:40060'),
   // Wait for the customer to pause: this long after the last message, at most TYPING_MAX_WAIT_MS
   // after the first.
   TYPING_DEBOUNCE_MS: z.coerce.number().int().min(0).default(8000),

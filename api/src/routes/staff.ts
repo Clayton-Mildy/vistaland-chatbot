@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { requireApiSecret } from '../middleware/apiSecret.js';
+import { pgCode } from '../db/pgError.js';
 import {
   countActiveAdmins,
   createStaff,
@@ -26,10 +27,7 @@ const PatchBody = z.object({
 });
 const IdParams = z.object({ id: z.uuid() });
 
-function isUniqueViolation(err: unknown): boolean {
-  const e = err as { code?: string; cause?: { code?: string } };
-  return e?.code === '23505' || e?.cause?.code === '23505';
-}
+const isUniqueViolation = (err: unknown): boolean => pgCode(err) === '23505';
 
 export async function staffRoutes(app: FastifyInstance): Promise<void> {
   app.post('/api/v1/auth/verify-credentials', { preHandler: [requireApiSecret] }, async (request, reply) => {

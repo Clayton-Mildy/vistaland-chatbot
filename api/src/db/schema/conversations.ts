@@ -2,6 +2,7 @@ import { pgTable, text, boolean, timestamp, jsonb, integer, bigint, uuid, check,
 import { sql } from 'drizzle-orm';
 import { projects } from './catalog.js';
 import { staffUsers } from './system.js';
+import { salesAgents } from './scheduling.js';
 
 // ─── contacts ──────────────────────────────────────────────────────────────
 
@@ -31,6 +32,8 @@ export const conversations = pgTable('conversations', {
   lastCustomerMsgAt: timestamp('last_customer_msg_at', { withTimezone: true }),
   lastMoniMsgAt: timestamp('last_moni_msg_at', { withTimezone: true }),
   lastCannedReplyAt: timestamp('last_canned_reply_at', { withTimezone: true }),
+  // When leads.summary was last regenerated from this conversation.
+  summaryRefreshedAt: timestamp('summary_refreshed_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -112,8 +115,7 @@ export const leads = pgTable(
     typeInterest: integer('type_interest').array().notNull().default(sql`'{}'`),
     hotCold: text('hot_cold').$type<'hot' | 'warm' | 'cold'>(),
     lostReason: text('lost_reason'),
-    // Milestone 3 fills these.
-    assignedSalesId: uuid('assigned_sales_id').references(() => staffUsers.id, { onDelete: 'set null' }),
+    assignedSalesId: uuid('assigned_sales_id').references(() => salesAgents.id, { onDelete: 'set null' }),
     summary: jsonb('summary'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -137,6 +139,11 @@ export const LEAD_EVENT_KINDS = [
   'opt_out',
   'project_set',
   'note',
+  'visit_booked',
+  'visit_rescheduled',
+  'visit_cancelled',
+  'visit_reassigned',
+  'visit_outcome',
 ] as const;
 export type LeadEventKind = (typeof LEAD_EVENT_KINDS)[number];
 

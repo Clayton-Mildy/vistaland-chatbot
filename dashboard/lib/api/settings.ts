@@ -1,6 +1,14 @@
 import { apiFetch } from "./client";
 
-export type AppSettings = { aiEnabled: boolean; personaGroupName: string; takeoverHours: number };
+export type TemplateRef = { name: string; language: string };
+export type AppSettings = {
+  aiEnabled: boolean;
+  personaGroupName: string;
+  takeoverHours: number;
+  chakraPhoneNumberId: string;
+  salesAlertTemplate: TemplateRef;
+  reassignNoticeTemplate: TemplateRef;
+};
 export type PromptVersion = { id: number; text: string; createdBy: string | null; createdAt: string | null };
 
 export async function getSettings(): Promise<AppSettings> {

@@ -13,6 +13,19 @@ describe('parseConfig', () => {
     expect(c.VLES_API_KEY).toBe('');
   });
 
+  it('defaults the outbound, summary and push settings', () => {
+    const c = parseConfig(base);
+    expect(c).toMatchObject({
+      OUTBOUND_POLL_MS: 60000,
+      SUMMARY_REFRESH_MS: 600000,
+      VAPID_PUBLIC_KEY: '',
+      VAPID_PRIVATE_KEY: '',
+      VAPID_SUBJECT: 'mailto:admin@localhost',
+      DASHBOARD_PUBLIC_URL: 'http://localhost:40060',
+    });
+    expect(parseConfig({ ...base, OUTBOUND_POLL_MS: '0' }).OUTBOUND_POLL_MS).toBe(0);
+  });
+
   it('rejects a missing DATABASE_URL and a short API_SECRET_KEY in one error', () => {
     expect(() => parseConfig({ API_SECRET_KEY: 'short' })).toThrow(/DATABASE_URL[\s\S]*API_SECRET_KEY/);
   });

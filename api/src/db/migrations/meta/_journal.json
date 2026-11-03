@@ -29,6 +29,13 @@
       "when": 1793450745282,
       "tag": "0003_small_shaman",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793681347681,
+      "tag": "0004_secret_magus",
+      "breakpoints": true
     }
   ]
 }

@@ -2,11 +2,33 @@
 
 import { useState, useTransition } from "react";
 import { savePromptAction, saveSettingsAction } from "@/actions/settingsActions";
-import type { AppSettings, PromptVersion } from "@/lib/api/settings";
+import type { AppSettings, PromptVersion, TemplateRef } from "@/lib/api/settings";
 import { formatWib } from "@/lib/format";
 
 const input = "h-9 w-full rounded border border-slate-300 px-2 text-sm focus:border-brand-600 focus:outline-none";
 const button = "h-9 rounded bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60";
+
+const SALES_ALERT_BODY = `Halo Kak {{1}}, ada update kunjungan: *{{2}}*.
+Konsumen: {{3}}
+Waktu: {{4}}
+Proyek: {{5}}
+Ringkasan: {{6}}
+Detail: {{7}}`;
+
+const REASSIGN_NOTICE_BODY = `Halo Kak {{1}}, untuk kunjungan Kakak nanti akan dibantu oleh Kak {{2}} dari tim sales kami ya 😊`;
+
+function TemplateFields({ label, value, onChange }: { label: string; value: TemplateRef; onChange: (v: TemplateRef) => void }) {
+  return (
+    <div className="grid gap-2 sm:grid-cols-[1fr_8rem]">
+      <label className="block text-sm">{label} (nama)
+        <input className={input} value={value.name} placeholder="contoh: sales_alert_v1" onChange={(e) => onChange({ ...value, name: e.target.value })} />
+      </label>
+      <label className="block text-sm">Bahasa
+        <input className={input} value={value.language} placeholder="id" onChange={(e) => onChange({ ...value, language: e.target.value })} />
+      </label>
+    </div>
+  );
+}
 
 export function SettingsForm({ settings, versions }: { settings: AppSettings; versions: (PromptVersion & { author: string })[] }) {
   const [pending, start] = useTransition();
@@ -34,6 +56,44 @@ export function SettingsForm({ settings, versions }: { settings: AppSettings; ve
         </label>
         <button type="button" disabled={pending} className={button} onClick={() => run(() => saveSettingsAction({ aiEnabled: f.aiEnabled, personaGroupName: f.personaGroupName, takeoverHours: Number(f.takeoverHours) }), "Pengaturan tersimpan.")}>
           Simpan pengaturan
+        </button>
+      </section>
+      <section className="space-y-3 rounded-lg bg-white p-4 shadow-sm">
+        <h2 className="font-semibold">WhatsApp keluar</h2>
+        <p className="text-sm text-slate-600">
+          Pesan yang kita mulai sendiri (notifikasi ke sales, pemberitahuan ganti sales) harus memakai template yang sudah disetujui di ChakraHQ. Kirim kedua template di bawah ini, lalu isi namanya di sini. Selama nama kosong, pesan yang terkait tidak dikirim dan tetap menunggu.
+        </p>
+        <label className="block text-sm">Phone number ID ChakraHQ
+          <input className={input} inputMode="numeric" value={f.chakraPhoneNumberId} onChange={(e) => setF({ ...f, chakraPhoneNumberId: e.target.value })} />
+          <span className="text-xs text-slate-500">Nomor bisnis untuk pesan yang kita mulai. Kosong: pakai nomor percakapan konsumen.</span>
+        </label>
+        <TemplateFields label="Template notifikasi sales" value={f.salesAlertTemplate} onChange={(v) => setF({ ...f, salesAlertTemplate: v })} />
+        <div className="text-xs text-slate-600">
+          Isi template (kategori UTILITY, bahasa id):
+          <pre className="mt-1 whitespace-pre-wrap rounded bg-slate-50 p-2 font-mono">{SALES_ALERT_BODY}</pre>
+        </div>
+        <TemplateFields label="Template pemberitahuan ganti sales" value={f.reassignNoticeTemplate} onChange={(v) => setF({ ...f, reassignNoticeTemplate: v })} />
+        <div className="text-xs text-slate-600">
+          Isi template (kategori UTILITY, bahasa id):
+          <pre className="mt-1 whitespace-pre-wrap rounded bg-slate-50 p-2 font-mono">{REASSIGN_NOTICE_BODY}</pre>
+        </div>
+        <button
+          type="button"
+          disabled={pending}
+          className={button}
+          onClick={() =>
+            run(
+              () =>
+                saveSettingsAction({
+                  chakraPhoneNumberId: f.chakraPhoneNumberId.trim(),
+                  salesAlertTemplate: { name: f.salesAlertTemplate.name.trim(), language: f.salesAlertTemplate.language.trim() },
+                  reassignNoticeTemplate: { name: f.reassignNoticeTemplate.name.trim(), language: f.reassignNoticeTemplate.language.trim() },
+                }),
+              "Pengaturan WhatsApp keluar tersimpan."
+            )
+          }
+        >
+          Simpan WhatsApp keluar
         </button>
       </section>
       <section className="space-y-3 rounded-lg bg-white p-4 shadow-sm">

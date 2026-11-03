@@ -4,10 +4,18 @@ import { requireApiSecret } from '../middleware/apiSecret.js';
 import { getAppSettings, updateAppSettings } from '../settings/appSettings.js';
 import { currentPrompt, listPromptVersions, savePromptVersion } from '../repositories/promptVersions.js';
 
+const TemplateRef = z.object({
+  name: z.string().regex(/^[a-z0-9_]{0,512}$/),
+  language: z.string().regex(/^[a-z]{2}(_[A-Z]{2})?$/),
+});
+
 const SettingsPatch = z.object({
   aiEnabled: z.boolean().optional(),
   personaGroupName: z.string().trim().min(3).max(40).optional(),
   takeoverHours: z.number().int().min(1).max(168).optional(),
+  chakraPhoneNumberId: z.string().regex(/^\d{0,30}$/).optional(),
+  salesAlertTemplate: TemplateRef.optional(),
+  reassignNoticeTemplate: TemplateRef.optional(),
 });
 
 export async function settingsRoutes(app: FastifyInstance): Promise<void> {

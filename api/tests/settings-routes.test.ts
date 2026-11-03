@@ -11,12 +11,32 @@ beforeEach(() => truncate('app_settings', 'prompt_versions', 'staff_users'));
 
 it('reads defaults and validates updates', async () => {
   const app = buildApp();
-  expect((await app.inject({ method: 'GET', url: '/api/v1/settings', headers: auth })).json().data).toEqual({ aiEnabled: true, personaGroupName: 'tim Vista Land', takeoverHours: 24 });
+  expect((await app.inject({ method: 'GET', url: '/api/v1/settings', headers: auth })).json().data).toEqual({
+    aiEnabled: true,
+    personaGroupName: 'tim Vista Land',
+    takeoverHours: 24,
+    chakraPhoneNumberId: '',
+    salesAlertTemplate: { name: '', language: 'id' },
+    reassignNoticeTemplate: { name: '', language: 'id' },
+  });
   const ok = await app.inject({ method: 'PUT', url: '/api/v1/settings', headers: auth, payload: { aiEnabled: false, takeoverHours: 12 } });
   expect(ok.json().data).toMatchObject({ aiEnabled: false, takeoverHours: 12 });
-  for (const payload of [{ takeoverHours: 0 }, { takeoverHours: 169 }, { personaGroupName: 'ab' }]) {
+  for (const payload of [{ takeoverHours: 0 }, { takeoverHours: 169 }, { personaGroupName: 'ab' },
+    { salesAlertTemplate: { name: 'Bad Name', language: 'id' } },
+    { reassignNoticeTemplate: { name: 'ok_name', language: 'indonesia' } },
+    { chakraPhoneNumberId: '12ab' },
+    { chakraPhoneNumberId: '1'.repeat(31) },
+  ]) {
     expect((await app.inject({ method: 'PUT', url: '/api/v1/settings', headers: auth, payload })).statusCode).toBe(400);
   }
+});
+
+it('saves the outbound settings', async () => {
+  const app = buildApp();
+  const payload = { chakraPhoneNumberId: '1234567890', salesAlertTemplate: { name: 'sales_alert_v1', language: 'id' }, reassignNoticeTemplate: { name: '', language: 'en_US' } };
+  const res = await app.inject({ method: 'PUT', url: '/api/v1/settings', headers: auth, payload });
+  expect(res.statusCode).toBe(200);
+  expect(res.json().data).toMatchObject(payload);
 });
 
 it('a new prompt version becomes the one Moni uses', async () => {
