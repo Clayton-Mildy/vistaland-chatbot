@@ -4,6 +4,7 @@ import { contacts, conversations, leads, visits } from '../db/schema/index.js';
 import { getAppSettings, type AppSettings, type TemplateRef } from '../settings/appSettings.js';
 import type { ChakraClient } from '../chakra/client.js';
 import { CUSTOMER_KINDS, dueRows, markAttemptFailed, markCancelled, markSent, type OutboundRow } from './repository.js';
+import { SALES_ALERT_LABEL } from './salesAlert.js';
 
 const PASS_LIMIT = 50;
 // A sales alert held this long (say, until the template was approved) is no longer news.
@@ -38,10 +39,15 @@ async function leadContext(leadId: string | null): Promise<{ optedOut: boolean; 
   return { optedOut: r?.optedOutAt != null, phoneNumberId: r?.phoneNumberId ?? null };
 }
 
-/** A sales alert for a visit that has already started, or one queued over a day ago, must not go out. */
+/**
+ * A sales alert queued over a day ago must not go out, nor one for a visit that has already started.
+ * A cancel alert is the exception to the second rule: a visit cancelled after its start time still
+ * has to reach the sales person, who may be waiting at the gallery.
+ */
 async function staleSalesAlert(row: OutboundRow, now: Date): Promise<boolean> {
   if (row.kind !== 'sales_alert') return false;
   if (now.getTime() - row.createdAt.getTime() > SALES_ALERT_MAX_AGE_MS) return true;
+  if (row.params[1] === SALES_ALERT_LABEL.cancelled) return false;
   if (!row.visitId) return false;
   const [v] = await getDb().select({ startsAt: visits.startsAt }).from(visits).where(eq(visits.id, row.visitId));
   return v != null && v.startsAt.getTime() <= now.getTime();

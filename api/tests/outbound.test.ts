@@ -213,7 +213,7 @@ it('a sales alert goes out even when the lead contact has opted out', async () =
   expect(sent).toHaveLength(1);
 });
 
-it('a sales alert held past its visit start, or for over 24 hours, is cancelled as stale instead of sent', async () => {
+it('a sales alert held past its visit start, or for over 24 hours, is cancelled as stale instead of sent; a cancel alert still goes out', async () => {
   // Truncating projects cascades to the lead, so it is made again.
   await truncate('projects', 'sales_agents', 'contacts');
   await seedProjects();
@@ -237,22 +237,25 @@ it('a sales alert held past its visit start, or for over 24 hours, is cancelled 
     row({ dedupeKey: 'past', visitId: past }),
     row({ dedupeKey: 'future', visitId: future }),
     row({ dedupeKey: 'old' }),
+    // A visit cancelled after its start time: the sales person may be waiting at the gallery.
+    row({ dedupeKey: 'past-cancel', visitId: past, params: ['Rina', 'Kunjungan dibatalkan'] }),
   ]);
   // Held at T0: no template yet.
   const { chakra, sent } = fakeChakra();
-  expect(await createOutboundPoller({ chakra, now: () => T0 }).runOnce()).toEqual({ sent: 0, held: 3, failed: 0 });
+  expect(await createOutboundPoller({ chakra, now: () => T0 }).runOnce()).toEqual({ sent: 0, held: 4, failed: 0 });
 
   // The template is approved two hours later: the first visit has started by then.
   const later = new Date(T0.getTime() + 120 * MIN);
-  await getDb().update(scheduledMessages).set({ createdAt: T0 }).where(sql`dedupe_key in ('past', 'future')`);
+  await getDb().update(scheduledMessages).set({ createdAt: T0 }).where(sql`dedupe_key in ('past', 'future', 'past-cancel')`);
   await getDb().update(scheduledMessages).set({ createdAt: new Date(later.getTime() - 25 * 60 * MIN) }).where(eq(scheduledMessages.dedupeKey, 'old'));
   await updateAppSettings({ salesAlertTemplate: { name: 'sales_alert_v1', language: 'id' } });
-  expect(await createOutboundPoller({ chakra, now: () => later }).runOnce()).toEqual({ sent: 1, held: 0, failed: 0 });
-  expect(sent).toHaveLength(1);
+  expect(await createOutboundPoller({ chakra, now: () => later }).runOnce()).toEqual({ sent: 2, held: 0, failed: 0 });
+  expect(sent).toHaveLength(2);
   expect((await all()).map((r) => [r.dedupeKey, r.status, r.lastError])).toEqual([
     ['past', 'cancelled', 'stale'],
     ['future', 'sent', null],
     ['old', 'cancelled', 'stale'],
+    ['past-cancel', 'sent', null],
   ]);
 });
 
