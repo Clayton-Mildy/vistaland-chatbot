@@ -1,12 +1,13 @@
 import { it, expect, beforeEach } from 'vitest';
+import { eq } from 'drizzle-orm';
 import { truncate } from './helpers/db.js';
 import { seedProjects } from './helpers/vles.js';
 import { buildApp } from '../src/app.js';
 import { getDb } from '../src/db/client.js';
-import { contacts, leads, visits } from '../src/db/schema/index.js';
+import { contacts, leads, salesAgents, salesAvailability, visits } from '../src/db/schema/index.js';
 import { listProjects } from '../src/repositories/projects.js';
 import { createStaff } from '../src/repositories/staff.js';
-import { addTimeOff, agentForStaff, createAgent, listRoster, normalizeWaPhone, setAvailability } from '../src/scheduling/roster.js';
+import { RosterError, addTimeOff, agentForStaff, createAgent, listRoster, normalizeWaPhone, setAvailability, updateAgent } from '../src/scheduling/roster.js';
 
 const auth = { authorization: 'Bearer test-secret-test-secret-test-secret-00' };
 const DAY = 24 * 60 * 60 * 1000;
@@ -182,4 +183,55 @@ it('adds and deletes time off through the API', async () => {
 
 it('rejects requests without the API secret', async () => {
   expect((await buildApp().inject({ method: 'GET', url: '/api/v1/roster' })).statusCode).toBe(401);
+});
+
+it('concurrent setAvailability calls for one agent leave exactly one set of rows', async () => {
+  const [a] = await projectIds();
+  const agent = await createAgent({ name: 'Rina', waPhone: '6281000001', staffUserId: null, projectIds: [a!] });
+  const rows = [
+    { projectId: a!, weekday: 1, start: '09:00', end: '17:00' },
+    { projectId: a!, weekday: 2, start: '09:00', end: '17:00' },
+  ];
+  await Promise.all(Array.from({ length: 5 }, () => setAvailability(agent.id, rows)));
+  const stored = await getDb().select().from(salesAvailability).where(eq(salesAvailability.salesAgentId, agent.id));
+  expect(stored).toHaveLength(2);
+});
+
+it('deactivating waits for a transaction that holds the agent row, then sees its visit', async () => {
+  const [a] = await projectIds();
+  const agent = await createAgent({ name: 'Rina', waPhone: '6281000001', staffUserId: null, projectIds: [a!] });
+  const [c] = await getDb().insert(contacts).values({ waPhone: '6282001' }).returning();
+  const [lead] = await getDb().insert(leads).values({ contactId: c!.id }).returning();
+
+  let release!: () => void;
+  const held = new Promise<void>((r) => (release = r));
+  let locked!: () => void;
+  const hasLock = new Promise<void>((r) => (locked = r));
+  // A booking in flight: it holds FOR SHARE on the agent row and has inserted a visit, uncommitted.
+  const booking = getDb().transaction(async (tx) => {
+    await tx.select({ id: salesAgents.id }).from(salesAgents).where(eq(salesAgents.id, agent.id)).for('share');
+    const startsAt = new Date(Date.now() + DAY);
+    await tx.insert(visits).values({ leadId: lead!.id, projectId: a!, salesAgentId: agent.id, startsAt, endsAt: new Date(startsAt.getTime() + 3600_000), createdBy: 'moni' });
+    locked();
+    await held;
+  });
+  await hasLock;
+
+  let settled = false;
+  const deactivation = updateAgent(agent.id, { active: false }).then(
+    () => ({ ok: true as const }),
+    (err: unknown) => ({ ok: false as const, err })
+  );
+  void deactivation.then(() => (settled = true));
+  await new Promise((r) => setTimeout(r, 200));
+  expect(settled).toBe(false); // blocked on the row lock, not counting yet
+
+  release();
+  await booking;
+  const result = await deactivation;
+  expect(result.ok).toBe(false);
+  expect(result).toMatchObject({ err: expect.objectContaining({ code: 'HAS_UPCOMING_VISITS', count: 1 }) });
+  expect(result.ok === false && result.err instanceof RosterError).toBe(true);
+  const [row] = await getDb().select().from(salesAgents).where(eq(salesAgents.id, agent.id));
+  expect(row!.active).toBe(true);
 });

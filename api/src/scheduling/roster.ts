@@ -143,7 +143,9 @@ export async function updateAgent(
 
   try {
     return await getDb().transaction(async (tx) => {
-      const [current] = await tx.select().from(salesAgents).where(eq(salesAgents.id, id)).limit(1);
+      // Lock the agent row before checking, so a booking (which takes FOR SHARE on it) cannot slip
+      // in between the visit count and our write.
+      const [current] = await tx.select().from(salesAgents).where(eq(salesAgents.id, id)).limit(1).for('update');
       if (!current) return null;
 
       if (patch.active === false) {
@@ -178,6 +180,8 @@ export async function updateAgent(
 /** Replaces all of the agent's weekly hours. Every row's project must be one the agent covers. */
 export async function setAvailability(agentId: string, rows: AvailabilityRow[]): Promise<void> {
   await getDb().transaction(async (tx) => {
+    // Serialises with other hours and coverage changes for this agent: no duplicate rows, no orphans.
+    await tx.select({ id: salesAgents.id }).from(salesAgents).where(eq(salesAgents.id, agentId)).for('update');
     const covered = (await tx.select().from(salesAgentProjects).where(eq(salesAgentProjects.salesAgentId, agentId))).map((r) => r.projectId);
     if (rows.some((r) => !covered.includes(r.projectId))) throw new RosterError('PROJECT_NOT_COVERED');
     await tx.delete(salesAvailability).where(eq(salesAvailability.salesAgentId, agentId));
