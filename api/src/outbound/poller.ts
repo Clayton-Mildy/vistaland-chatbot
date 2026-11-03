@@ -12,6 +12,8 @@ export type OutboundPollerDeps = {
   now: () => Date;
   // Called once, when a row has used its last attempt.
   onFailed?: (row: OutboundRow) => Promise<void>;
+  // How a sent row is recorded; tests replace it to simulate the database failing at that moment.
+  markSent?: typeof markSent;
 };
 
 export type OutboundPass = { sent: number; held: number; failed: number };
@@ -38,38 +40,66 @@ export function createOutboundPoller(deps: OutboundPollerDeps): {
   runOnce(): Promise<OutboundPass>;
   start(intervalMs: number): () => void;
 } {
+  const record = deps.markSent ?? markSent;
+  // Rows WhatsApp accepted but whose "sent" mark could not be saved. They must never be sent again;
+  // the next pass only retries the mark.
+  const unrecorded = new Map<number, string | null>();
+  const errText = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
+  async function handle(row: OutboundRow, settings: AppSettings, now: Date, pass: OutboundPass): Promise<void> {
+    if (unrecorded.has(row.id)) {
+      await record(row.id, unrecorded.get(row.id)!, now);
+      unrecorded.delete(row.id);
+      return;
+    }
+    const ctx = await leadContext(row.leadId);
+    if (CUSTOMER_KINDS.includes(row.kind) && ctx.optedOut) {
+      await markCancelled(row.id);
+      return;
+    }
+    const template = templateFor(row.kind, settings);
+    const phoneNumberId = settings.chakraPhoneNumberId || ctx.phoneNumberId;
+    // Held rows stay pending and go out on the first pass after the setup is complete.
+    if (!template?.name || !phoneNumberId || !deps.chakra) {
+      pass.held++;
+      return;
+    }
+    let waMessageId: string | null;
+    try {
+      ({ waMessageId } = await deps.chakra.sendTemplate(phoneNumberId, row.toPhone, {
+        name: template.name,
+        language: template.language,
+        params: row.params,
+      }));
+    } catch (err) {
+      const updated = await markAttemptFailed(row.id, errText(err), now);
+      if (updated.status === 'failed') {
+        pass.failed++;
+        await deps.onFailed?.(updated).catch((e) => console.error('[outbound] onFailed crashed:', errText(e)));
+      }
+      return;
+    }
+    // Sent. A failure to save that is not a send failure: resending would message the person twice.
+    pass.sent++;
+    try {
+      await record(row.id, waMessageId, now);
+    } catch (err) {
+      unrecorded.set(row.id, waMessageId);
+      console.error(`[outbound] row ${row.id} was sent (${waMessageId ?? 'no wamid'}) but not marked sent:`, errText(err));
+    }
+  }
+
   const poller = {
     async runOnce(): Promise<OutboundPass> {
       const now = deps.now();
       const settings = await getAppSettings();
       const pass: OutboundPass = { sent: 0, held: 0, failed: 0 };
       for (const row of await dueRows(now, PASS_LIMIT)) {
-        const ctx = await leadContext(row.leadId);
-        if (CUSTOMER_KINDS.includes(row.kind) && ctx.optedOut) {
-          await markCancelled(row.id);
-          continue;
-        }
-        const template = templateFor(row.kind, settings);
-        const phoneNumberId = settings.chakraPhoneNumberId || ctx.phoneNumberId;
-        // Held rows stay pending and go out on the first pass after the setup is complete.
-        if (!template?.name || !phoneNumberId || !deps.chakra) {
-          pass.held++;
-          continue;
-        }
+        // One row's error must not stop the others; it is retried on the next pass.
         try {
-          const res = await deps.chakra.sendTemplate(phoneNumberId, row.toPhone, {
-            name: template.name,
-            language: template.language,
-            params: row.params,
-          });
-          await markSent(row.id, res.waMessageId, now);
-          pass.sent++;
+          await handle(row, settings, now, pass);
         } catch (err) {
-          const updated = await markAttemptFailed(row.id, err instanceof Error ? err.message : String(err), now);
-          if (updated.status === 'failed') {
-            pass.failed++;
-            await deps.onFailed?.(updated).catch((e) => console.error('[outbound] onFailed crashed:', e instanceof Error ? e.message : e));
-          }
+          console.error(`[outbound] row ${row.id} crashed:`, errText(err));
         }
       }
       return pass;

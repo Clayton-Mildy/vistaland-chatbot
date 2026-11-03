@@ -6,7 +6,7 @@ import { getDb } from '../src/db/client.js';
 import { scheduledMessages } from '../src/db/schema/index.js';
 import { ensureConversation, ensureLead, optOut, upsertContact } from '../src/leads/repository.js';
 import { updateAppSettings } from '../src/settings/appSettings.js';
-import { cancelPending, dueRows, enqueue, markAttemptFailed, outboundSummary, type NewOutbound } from '../src/outbound/repository.js';
+import { cancelPending, dueRows, enqueue, markAttemptFailed, markSent, outboundSummary, type NewOutbound } from '../src/outbound/repository.js';
 import { templateParam } from '../src/outbound/templateParams.js';
 import { createOutboundPoller } from '../src/outbound/poller.js';
 import type { ChakraClient } from '../src/chakra/client.js';
@@ -222,6 +222,63 @@ it('optOut cancels pending customer notices but not sales alerts', async () => {
     ['h1_reminder', 'cancelled'],
     ['followup', 'cancelled'],
   ]);
+});
+
+it('a send that succeeds but is not recorded is never resent and costs no attempt', async () => {
+  const { chakra, sent } = fakeChakra();
+  const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+  try {
+    await updateAppSettings({ salesAlertTemplate: { name: 'sales_alert_v1', language: 'id' } });
+    await enqueue(getDb(), [row()]);
+    let failMark = true;
+    const poller = createOutboundPoller({
+      chakra,
+      now: () => T0,
+      markSent: async (id, wamid, now) => {
+        if (failMark) throw new Error('db down');
+        await markSent(id, wamid, now);
+      },
+    });
+    expect(await poller.runOnce()).toEqual({ sent: 1, held: 0, failed: 0 });
+    expect((await all())[0]).toMatchObject({ status: 'pending', attempts: 0, lastError: null });
+    expect(errors.mock.calls[0]!.join(' ')).toContain('wamid.OUT1');
+
+    failMark = false;
+    expect(await poller.runOnce()).toEqual({ sent: 0, held: 0, failed: 0 });
+    expect(sent).toHaveLength(1);
+    expect((await all())[0]).toMatchObject({ status: 'sent', attempts: 0, waMessageId: 'wamid.OUT1' });
+  } finally {
+    errors.mockRestore();
+  }
+});
+
+it('a row whose processing throws is logged and the next row in the pass is still sent', async () => {
+  const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+  try {
+    await updateAppSettings({ salesAlertTemplate: { name: 'sales_alert_v1', language: 'id' } });
+    await enqueue(getDb(), [row({ dedupeKey: 'first', dueAt: new Date(T0.getTime() - MIN) }), row({ dedupeKey: 'second' })]);
+    const sent: string[] = [];
+    const chakra: ChakraClient = {
+      ...fakeChakra().chakra,
+      // The first send fails and its row disappears, so recording the failure throws too.
+      sendTemplate: async (_p, to, t) => {
+        if (sent.length === 0 && t.params[0] === 'Rina') {
+          sent.push('first');
+          await getDb().delete(scheduledMessages).where(eq(scheduledMessages.dedupeKey, 'first'));
+          throw new Error('chakra down');
+        }
+        sent.push(to);
+        return { waMessageId: 'wamid.2' };
+      },
+    };
+    expect(await createOutboundPoller({ chakra, now: () => T0 }).runOnce()).toEqual({ sent: 1, held: 0, failed: 0 });
+    expect(sent).toEqual(['first', '6281999000111']);
+    expect(errors).toHaveBeenCalledTimes(1);
+    expect(errors.mock.calls[0]!.join(' ')).toContain('crashed');
+    expect((await all()).map((r) => [r.dedupeKey, r.status])).toEqual([['second', 'sent']]);
+  } finally {
+    errors.mockRestore();
+  }
 });
 
 it('start runs passes without overlapping and stops', async () => {
