@@ -52,6 +52,17 @@ it('allows Moni forward moves and lost, refuses backward and visit stages', () =
   expect(canMoniSetStage('engaged', 'opted_out')).toBe(false);
 });
 
+it('Moni may propose a visit again after a cancellation', () => {
+  for (const from of ['cancelled', 'no_show'] as const) {
+    expect(canMoniSetStage(from, 'visit_proposed')).toBe(true);
+    expect(canMoniSetStage(from, 'lost')).toBe(true);
+    expect(canMoniSetStage(from, 'engaged')).toBe(false);
+    expect(canMoniSetStage(from, 'visit_scheduled')).toBe(false);
+  }
+  expect(canMoniSetStage('visit_scheduled', 'visit_proposed')).toBe(false);
+  expect(canMoniSetStage('visited', 'visit_proposed')).toBe(false);
+});
+
 it('upserts contacts and conversations idempotently', async () => {
   const again = await upsertContact('6281234567890', 'Sari W');
   expect(again.id).toBe(contact.id);

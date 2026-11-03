@@ -10,6 +10,8 @@ export const MONI_SETTABLE_STAGES = ['engaged', 'qualified', 'recommended', 'vis
 
 export function canMoniSetStage(from: LeadStage, to: LeadStage): boolean {
   if (from === 'lost') return to === 'engaged';
+  // After a cancelled or missed visit, Moni may offer another one or let the lead go.
+  if (from === 'cancelled' || from === 'no_show') return to === 'visit_proposed' || to === 'lost';
   const i = MONI_PATH.indexOf(from);
   if (i < 0) return false;
   if (to === 'lost') return true;
