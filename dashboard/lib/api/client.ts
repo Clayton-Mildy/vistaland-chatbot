@@ -15,7 +15,9 @@ export interface ApiEnvelope<T> {
 export class ApiError extends Error {
   constructor(
     public status: number,
-    public code: string
+    public code: string,
+    // meta.count of errors such as HAS_UPCOMING_VISITS.
+    public count?: number
   ) {
     super(`API ${status}: ${code}`);
     this.name = "ApiError";
@@ -39,6 +41,9 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<Api
   } catch {
     // empty or non-JSON body
   }
-  if (!res.ok) throw new ApiError(res.status, body?.error ?? "UNKNOWN");
+  if (!res.ok) {
+    const count = (body?.meta as { count?: number } | undefined)?.count;
+    throw new ApiError(res.status, body?.error ?? "UNKNOWN", count);
+  }
   return body ?? { data: null, error: null };
 }

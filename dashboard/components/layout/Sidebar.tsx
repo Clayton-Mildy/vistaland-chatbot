@@ -12,6 +12,7 @@ const ITEMS: { href: string; label: string; adminOnly?: boolean }[] = [
   { href: "/projects", label: "Proyek & Materi", adminOnly: true },
   { href: "/kpr", label: "Asumsi KPR", adminOnly: true },
   { href: "/staff", label: "Staf", adminOnly: true },
+  { href: "/roster", label: "Roster Sales", adminOnly: true },
   { href: "/settings", label: "Pengaturan", adminOnly: true },
 ];
 

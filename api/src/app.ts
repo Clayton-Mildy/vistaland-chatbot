@@ -12,6 +12,7 @@ import type { ChakraClient } from './chakra/client.js';
 import { leadRoutes } from './routes/leads.js';
 import { testChatRoutes, type AgentDeps } from './routes/testChat.js';
 import { settingsRoutes } from './routes/settings.js';
+import { rosterRoutes } from './routes/roster.js';
 
 export type AppDeps = {
   // Handles each WhatsApp message the webhook accepts; index.ts wires the router in.
@@ -40,6 +41,7 @@ export function buildApp(deps: AppDeps = {}): FastifyInstance {
   void app.register(catalogRoutes);
   void app.register(leadRoutes({ chakra: deps.chakra }));
   void app.register(settingsRoutes);
+  void app.register(rosterRoutes);
   void app.register(
     testChatRoutes(deps.agent ?? { anthropic: null, vles: null, settings: { model: getConfig().MONI_MODEL, effort: getConfig().MONI_EFFORT } })
   );
