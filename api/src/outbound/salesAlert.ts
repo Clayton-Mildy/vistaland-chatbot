@@ -25,7 +25,7 @@ export const SALES_ALERT_LABEL = {
 //   Ringkasan: {{6}}
 //   Detail: {{7}}
 //
-// {{1}} agent name, {{2}} event label, {{3}} "<customer name> (<phone>)", {{4}} visit time,
+// {{1}} agent name, {{2}} event label, {{3}} "<customer name> (<phone>)", {{4}} visit time (the old one for movedAway),
 // {{5}} project, {{6}} summaryLine, {{7}} <dashboard>/visits/<id>.
 
 export type SalesAlertContext = {
@@ -77,9 +77,11 @@ export function salesAlertRows(change: VisitChange, ctx: SalesAlertContext): New
         agent.name,
         SALES_ALERT_LABEL[label],
         `${ctx.summary.name} (${ctx.summary.phone})`,
-        wibLabel(visit.startsAt),
+        // The agent who loses the visit is told the slot they no longer cover.
+        wibLabel(label === 'movedAway' && change.previous ? change.previous.startsAt : visit.startsAt),
         ctx.projectName,
-        summaryLine(ctx.summary),
+        // Meta rejects an empty variable, and a lead with only a name has no summary.
+        summaryLine(ctx.summary) || '-',
         `${ctx.dashboardUrl}/visits/${visit.id}`,
       ].map((p) => templateParam(p)),
       dueAt: ctx.now,

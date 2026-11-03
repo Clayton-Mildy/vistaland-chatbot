@@ -176,6 +176,23 @@ it('a reschedule to another agent alerts both', () => {
   expect(rows.map((r) => r.dedupeKey)).toEqual(['sales_alert:v2:movedAway:a1', 'sales_alert:v2:booked:a2']);
 });
 
+it('a reschedule to another agent shows the old agent the slot they lost', () => {
+  const later = new Date(STARTS.getTime() + 86_400_000);
+  const rows = salesAlertRows({ kind: 'rescheduled', visit: visit({ id: 'v2', salesAgentId: 'a2', startsAt: later }), previous: visit() }, ctx());
+  expect(rows[0]!.params[3]).toBe('Rabu, 4 November 2026 10.00 WIB');
+  expect(rows[1]!.params[3]).toBe('Kamis, 5 November 2026 10.00 WIB');
+  // A reassignment keeps the slot, and without a previous row the new time is used.
+  expect(salesAlertRows({ kind: 'reassigned', visit: visit({ salesAgentId: 'a2' }), previous: visit() }, ctx()).map((r) => r.params[3])).toEqual(['Rabu, 4 November 2026 10.00 WIB', 'Rabu, 4 November 2026 10.00 WIB']);
+  expect(salesAlertRows({ kind: 'reassigned', visit: visit({ salesAgentId: 'a2' }), previous: null }, ctx()).map((r) => r.params[3])).toEqual(['Rabu, 4 November 2026 10.00 WIB']);
+});
+
+it('an empty summary is sent as a dash, never as an empty variable', () => {
+  const bare = buildHandoverSummary({ lead: lead(), contact: contact(), events: [], typeNames: new Map(), visit: null });
+  const [row] = salesAlertRows({ kind: 'booked', visit: visit(), previous: null }, ctx(bare));
+  expect(row!.params[5]).toBe('-');
+  expect(row!.params.every((p) => p !== '')).toBe(true);
+});
+
 it('each change alerts the agents it concerns', () => {
   const labels = (c: VisitChange) => salesAlertRows(c, ctx()).map((r) => [r.params[0], r.params[1]]);
   expect(labels({ kind: 'rescheduled', visit: visit({ id: 'v2' }), previous: visit() })).toEqual([['Rina', SALES_ALERT_LABEL.rescheduled]]);
