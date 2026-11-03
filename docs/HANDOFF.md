@@ -26,8 +26,8 @@ Read this first if you are picking the work up in a new session or account.
 
 ## Next steps, in order
 
-1. **Add the key.** Put `ANTHROPIC_API_KEY=...` in `api/.env`.
-   - It must be an API key from the **Claude Console**. Do not use a Claude Code subscription OAuth token for Moni: Anthropic's terms allow those only in Claude Code and Anthropic's own apps.
+1. **Add the key.** Put `CLAUDE_CODE_OAUTH_TOKEN=...` in `api/.env`.
+   - This app can use the claude Oauth account to call any model, but when the API key its provided, all the ai call must use from the API Key.
    - The model is `claude-opus-5-5` (`MONI_MODEL`) and the effort is `medium` (`MONI_EFFORT`).
    - **The rehearsal spends API credit. The user must approve the spend first.** It should cost well under a dollar.
 2. **Set up the data the chats need.**
