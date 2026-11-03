@@ -13,6 +13,7 @@ import { syncStaffReplies } from './chakra/staffSync.js';
 import { createOutboundPoller } from './outbound/poller.js';
 import { createWebPushNotifier } from './notify/push.js';
 import { createAlerts } from './notify/alerts.js';
+import { startSummaryRefresh } from './leads/refresh.js';
 
 const config = getConfig();
 const vles = getVlesClient();
@@ -78,3 +79,7 @@ if (config.OUTBOUND_POLL_MS > 0) {
   const poller = createOutboundPoller({ chakra: config.CHAKRA_ACCESS_TOKEN ? chakra : null, now: () => new Date(), onFailed: (row) => alerts.outboundFailed(row) });
   poller.start(config.OUTBOUND_POLL_MS);
 } else console.log('[outbound] OUTBOUND_POLL_MS is 0 - queued WhatsApp templates are not sent');
+
+if (anthropic && config.SUMMARY_REFRESH_MS > 0) {
+  startSummaryRefresh({ anthropic, model: config.MONI_MODEL, now: () => new Date() }, config.SUMMARY_REFRESH_MS);
+} else console.log('[summary] lead summary refresh is off (no API key or SUMMARY_REFRESH_MS is 0)');

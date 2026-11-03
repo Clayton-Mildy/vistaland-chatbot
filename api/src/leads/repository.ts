@@ -258,6 +258,19 @@ export async function updateLeadFacts(leadId: string, patch: LeadFactsPatch, act
   return row!;
 }
 
+/** Like updateLeadFacts, but only for facts the lead does not have yet; concerns are appended. */
+export async function fillBlankFacts(leadId: string, patch: LeadFactsPatch, actor: string): Promise<Lead> {
+  const lead = await getLead(leadId);
+  if (!lead) throw new Error(`Lead ${leadId} not found`);
+  const blank: LeadFactsPatch = {};
+  if (patch.addConcerns) blank.addConcerns = patch.addConcerns;
+  for (const k of SCALAR_FIELDS) {
+    const v = patch[k];
+    if (v !== undefined && (lead[k] === null || lead[k] === '')) (blank as Record<string, unknown>)[k] = v;
+  }
+  return updateLeadFacts(leadId, blank, actor);
+}
+
 export async function setLeadStage(leadId: string, to: LeadStage, actor: string, opts: { force?: boolean } = {}): Promise<Lead> {
   const lead = await getLead(leadId);
   if (!lead) throw new Error(`Lead ${leadId} not found`);
