@@ -19,21 +19,4 @@ export function buildSystemBlocks(input: {
   ];
 }
 
-/** "Jumat, 30 Oktober 2026 10.00 WIB". */
-export function nowWibLabel(now: Date): string {
-  const p = Object.fromEntries(
-    new Intl.DateTimeFormat('id-ID', {
-      timeZone: 'Asia/Jakarta',
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hourCycle: 'h23',
-    })
-      .formatToParts(now)
-      .map((x) => [x.type, x.value])
-  );
-  return `${p.weekday}, ${p.day} ${p.month} ${p.year} ${p.hour}.${p.minute} WIB`;
-}
+export { wibLabel as nowWibLabel } from '../scheduling/time.js';

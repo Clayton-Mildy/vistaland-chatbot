@@ -26,7 +26,7 @@ export class RosterError extends Error {
   }
 }
 
-const ACTIVE_VISIT_STATUSES = ['scheduled', 'confirmed', 'awaiting_confirmation'] as const;
+export const ACTIVE_VISIT_STATUSES = ['scheduled', 'confirmed', 'awaiting_confirmation'] as const;
 
 /** "0812-3456-7890" and "+62 812 3456 7890" both become "6281234567890"; null when it is not a WhatsApp number. */
 export function normalizeWaPhone(input: string): string | null {
