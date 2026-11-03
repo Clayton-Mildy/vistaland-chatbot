@@ -83,7 +83,7 @@ CREATE TABLE "visits" (
 	"cancel_reason" text,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "visits_status_check" CHECK ("visits"."status" in ('scheduled', 'confirmed', 'awaiting_confirmation', 'completed', 'no_show', 'cancelled', 'rescheduled'))
+	CONSTRAINT "visits_status_check" CHECK ("visits"."status" in ('scheduled', 'confirmed', 'awaiting_confirmation', 'visited', 'no_show', 'cancelled', 'rescheduled'))
 );
 --> statement-breakpoint
 ALTER TABLE "lead_events" DROP CONSTRAINT "lead_events_kind_check";--> statement-breakpoint

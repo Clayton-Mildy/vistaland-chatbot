@@ -75,7 +75,7 @@ export const VISIT_STATUSES = [
   'scheduled',
   'confirmed',
   'awaiting_confirmation',
-  'completed',
+  'visited',
   'no_show',
   'cancelled',
   'rescheduled',

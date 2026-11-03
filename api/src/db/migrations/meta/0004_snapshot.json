@@ -2761,7 +2761,7 @@
       "checkConstraints": {
         "visits_status_check": {
           "name": "visits_status_check",
-          "value": "\"visits\".\"status\" in ('scheduled', 'confirmed', 'awaiting_confirmation', 'completed', 'no_show', 'cancelled', 'rescheduled')"
+          "value": "\"visits\".\"status\" in ('scheduled', 'confirmed', 'awaiting_confirmation', 'visited', 'no_show', 'cancelled', 'rescheduled')"
         }
       },
       "isRLSEnabled": false

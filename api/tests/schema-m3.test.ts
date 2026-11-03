@@ -86,10 +86,13 @@ it('a lead has one active visit', async () => {
   await getDb().insert(visits).values(visit(lead.id, '14:00', '15:00'));
 });
 
-it('rejects an unknown visit status', async () => {
+it('accepts the outcome statuses and rejects an unknown one', async () => {
   const { mkLead, visit } = await setup();
+  const [v, n] = [await mkLead('6282011'), await mkLead('6282012')];
+  await getDb().insert(visits).values(visit(v.id, '09:00', '10:00', { status: 'visited' }));
+  await getDb().insert(visits).values(visit(n.id, '09:00', '10:00', { status: 'no_show' }));
   const lead = await mkLead('6282001');
-  await expect(getDb().insert(visits).values(visit(lead.id, '10:00', '11:00', { status: 'done' as never }))).rejects.toThrow();
+  await expect(getDb().insert(visits).values(visit(lead.id, '10:00', '11:00', { status: 'completed' as never }))).rejects.toThrow();
 });
 
 it('dedupe_key may repeat only after cancellation', async () => {
