@@ -96,7 +96,9 @@ ChakraHQ** in **Pengaturan > WhatsApp keluar** (fields **Template notifikasi sal
   Parameters: 1 customer name, 2 new sales name.
 
 Until a template name is set, the messages that need it stay queued ("tertahan") and **Jadwal**
-shows a banner linking to Pengaturan. If the first live send fails, compare the payload with
+shows a banner linking to Pengaturan. A held sales alert is dropped instead of sent once its visit
+has started or it is more than 24 hours old, so approving the template late doesn't flood agents
+with stale news. If the first live send fails, compare the payload with
 vinindo-app's template sender: whether ChakraHQ passes template messages through unchanged is not
 confirmed yet.
 
@@ -109,9 +111,12 @@ WhatsApp templates). Generate the VAPID keys once:
 npx web-push generate-vapid-keys
 ```
 
-Put them in `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY`, with `VAPID_SUBJECT` such as
-`mailto:you@example.com`. Push is off while either key is empty. In production these go in
-`deploy/.env` (compose passes them through; `deploy/.env.example` doesn't list them yet).
+Put them in `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY`, with `VAPID_SUBJECT` a real
+`mailto:` or `https:` address such as `mailto:you@example.com`: Apple's push service rejects the
+`mailto:admin@localhost` default, so Safari and iPhone users get nothing until it is set. Push is
+off while either key is empty. In production these go in `deploy/.env` (listed in
+`deploy/.env.example`). Each push request gives up after 10 seconds, and the API only accepts
+subscriptions to public `https:` push hosts (no IP addresses or localhost).
 
 ### Other API settings
 
@@ -120,7 +125,7 @@ All optional; the defaults are in `api/.env.example`.
 | Variable | Default | What it does |
 | --- | --- | --- |
 | `TRUST_PROXY_HOPS` | `0` (compose: `1`) | Proxies in front of the API, so rate limits see the real client IP. |
-| `MEDIA_RATE_LIMIT_PER_MIN` | `600` | Per client IP, for public `/media` files. `0` turns it off. Not wired into compose; add it there to change it. |
+| `MEDIA_RATE_LIMIT_PER_MIN` | `600` | Per client IP, for public `/media` files. `0` turns it off. |
 | `OUTBOUND_POLL_MS` | `60000` | How often due outbound WhatsApp messages are sent. `0` turns it off. |
 | `SUMMARY_REFRESH_MS` | `600000` | How often summaries of quiet chats are refreshed. `0` turns it off. |
 | `DASHBOARD_PUBLIC_URL` | `http://localhost:40060` | Where notification and template links open the dashboard (compose sets `https://<DOMAIN>`). |

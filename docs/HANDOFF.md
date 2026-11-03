@@ -19,8 +19,8 @@ Read this first if you are picking the work up in a new session or account.
 - **Milestone 3** (visits) is complete on branch `m3-visits`. It is **not pushed and not merged**.
   - Built task by task, with a review after each task.
   - It adds the sales roster, the slot finder, fair booking, Moni's visit tools (`find_visit_slots`, `book_visit`, `reschedule_visit`, `cancel_visit`), the outbound WhatsApp template queue, web push, sales users seeing their own leads, the Schedule (Jadwal) page, the lead summary refresh and the media rate limit.
-  - Tests on 2026-11-03: 336 API and 14 dashboard tests pass.
-  - A whole-branch final review is being run next.
+  - Tests on 2026-11-03, after the final-review fixes: 345 API and 15 dashboard tests pass.
+  - The whole-branch final review is done and its fixes are in; what it left for later is under "Milestone 3 open items".
 - **Not done:** the live rehearsal against the real Claude model. Nothing has called the real Anthropic API yet, for Milestone 2 or 3.
 - **Implementation ledgers** (gitignored): `.superpowers/sdd/2026-10-31-m2-moni-answers/` and `.superpowers/sdd/2026-11-02-m3-visits/`. Keep them until the rehearsal is done.
 
@@ -38,10 +38,10 @@ Read this first if you are picking the work up in a new session or account.
    - Start the API and the dashboard (see `README.md`). The API runs on port 50060.
 3. **Run the five rehearsal chats** in `/test-chat` (Uji Chat). Chats 1 to 4 run in order in one conversation; chat 5 needs Zetira's roster emptied first.
    1. `[ZTR-REELS] Halo kak, mau lihat rumah Sabtu ini jam 10 bisa?`: Moni greets, calls `find_visit_slots` with the right Saturday, offers 10.00, restates the visit with the Maps link and asks "Sudah sesuai".
-   2. `Iya sesuai kak`: `book_visit` is called, Moni names the agent from the tool and sends no extra handover message. The Schedule page shows a test visit. No `scheduled_messages` row exists.
+   2. `Iya sesuai kak`: `book_visit` is called, Moni names the agent from the tool and sends no extra handover message. The booking shows in the test chat's trace and lead panel (test visits are kept off the Schedule page on purpose). No `scheduled_messages` row exists.
    3. `Kak, bisa diganti Minggu jam 1 siang?`: `reschedule_visit` is called, or, if there are no Sunday hours, Moni offers what `find_visit_slots` returns.
    4. `Batal dulu ya kak`: `cancel_visit` is called, polite, no pressure.
-   5. With Zetira's roster emptied: `Mau lihat rumah besok`: the tool returns `NO_ROSTER`, Moni saves the timeline, hands off, and an admin push arrives.
+   5. With Zetira's roster emptied: `Mau lihat rumah besok`: the tool returns `NO_ROSTER`, Moni saves the timeline and hands off; the hand-off and the saved timeline show in the trace and lead panel. No push arrives: the test chat runs without alerts.
 
    For each chat, check the reply and the trace, and note `usage.cache_read_input_tokens` (prompt caching should kick in from turn 2). Record pass or fail for each chat in a commit message, and fix any tone problems in `api/src/agent/prompts/system.ts`.
 4. **Template go-live.** Submit the two WhatsApp templates in ChakraHQ and fill **Pengaturan > WhatsApp keluar** (bodies are in `README.md`). If the first live template send fails, compare the payload with vinindo-app's template sender.
@@ -49,7 +49,7 @@ Read this first if you are picking the work up in a new session or account.
 6. **Milestone 4, Outbound and reporting** (the plan's "Not in this milestone" section):
    - The H-1 reminder, the 08:00 `awaiting_confirmation` switch and `visit_confirmed` from the reminder reply. The poller already holds the `h1_reminder` and `waiting_notice` kinds.
    - The next-day follow-up.
-   - The opt-out block on every outbound customer kind (today only `reassign_notice` has it).
+   - Nothing to add for opt-outs: the block already covers every outbound customer kind. The poller cancels any `CUSTOMER_KINDS` row for an opted-out contact, and `optOut` cancels the pending ones.
    - The confirmed and awaiting-confirmation sales alerts.
    - Board-by-stage on Leads, and the Funnel page.
    - The 25-scenario conversation suite with an LLM judge.
@@ -64,7 +64,39 @@ Read this first if you are picking the work up in a new session or account.
 
 ## Milestone 3 open items
 
-The final whole-branch review of `m3-visits` is the next thing to run. It will produce the real list of open items; copy them here when it does. The other Milestone 2 minors (customer-controlled lead facts unmarked in the system block, a `max_tokens` cut-off not logged differently, a staff-reply check slower than 5 seconds skipped silently) were not re-checked in Milestone 3; ask the review to confirm whether they are still open.
+From the final whole-branch review; none blocks the merge. The Milestone 2 minors (intArray in type profiles, quoted lead facts, the `max_tokens` trace, the slow staff-sync log) were all fixed in Task 1.
+
+- Lockfile churn.
+- `quoted()` leaves a trailing space.
+- Missing tests: media rate limit 0, `TRUST_PROXY_HOPS`, kind checks, sales 403 on PATCH and `/ai`, the 5-minute boundary, refresh no-overlap.
+- The media 429 body is not in the `{data, error}` envelope.
+- 600/min per IP on `/media` vs Meta's fetches: watch at go-live.
+- No `ends_at > starts_at` check on visits.
+- `z.string().url()` is deprecated in zod 4.
+- Settings shows a generic error for a bad template name.
+- Roster FK errors are 500s, and a linked account isn't checked to be a sales user.
+- `RosterClient` keeps stale state.
+- `addTimeOff` doesn't lock the agent or warn about visits inside the time off.
+- Held rows can starve due rows in `dueRows`.
+- `cancelPending` runs without an id filter.
+- No warn log on a failed send attempt.
+- `templateParam('')`, and clipping can split a surrogate pair.
+- The poller's unrecorded map is lost on restart.
+- `DELETE /push/subscriptions` is unscoped.
+- A shared browser keeps the previous user's push subscription.
+- Manifest icons.
+- A→B→A dedupe keys collide (`sales_alert` and `reassign_notice`).
+- Off-grid visits can't be reassigned.
+- Rescheduling to the same slot is allowed.
+- Lead detail shows all of a lead's visits to its sales user.
+- A `sendStaffText` insert failure sends the free text and the template.
+- `fillBlankFacts` has a read-then-write race.
+- The refresh's lead state lacks the active visit.
+- `salesNames` keeps a cancelled agent's name.
+- Booking-claim regex false positives ("unit … sudah dikonfirmasi masih tersedia", "kalau jadwalnya sudah fix"): watch in rehearsal.
+- `cancel_visit` errors carry no message.
+- `typeName` runs outside `guarded()`.
+- `UNCHECKABLE` is typed `string[]`.
 
 ## Gotchas
 
