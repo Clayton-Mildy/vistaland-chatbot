@@ -204,6 +204,7 @@ it('reschedule_visit and cancel_visit act on the active visit and alert the agen
   expect(await json(runTool('reschedule_visit', { date: '2026-11-07', time: '13:00' }, c))).toMatchObject({ ok: true, label: 'Sabtu, 7 November 2026 13.00 WIB', sales_name: 'Budi Santoso' });
   expect(c.evidence.visitBooked).toBe(true);
   expect(await json(runTool('cancel_visit', { reason: 'berhalangan' }, c))).toEqual({ ok: true });
+  expect(c.evidence.visitBooked).toBe(false);
   expect((await getLead(lead.id))!.stage).toBe('cancelled');
   expect(notifier.sent.map((s) => s.note.title)).toEqual(['Jadwal kunjungan berubah', 'Kunjungan dibatalkan']);
 });
@@ -229,4 +230,20 @@ it('an unverified availability check alerts the assigned sales person', async ()
   const r = await json(runTool('check_availability', { project: 'zetira', house_type_id: 500 }, ctx({ alerts: createAlerts({ notifier, dashboardUrl: 'https://dash' }) })));
   expect(r.verified).toBe(false);
   expect(notifier.sent).toEqual([{ staffUserIds: [staffId], note: expect.objectContaining({ body: expect.stringContaining('ZETIRA BELVIA') }) }]);
+});
+
+it('availability VLES could not check alerts staff, but a VLES answer of no unit does not', async () => {
+  const { agent, staffId } = await rosterZetira();
+  await getDb().update(leads).set({ assignedSalesId: agent.id }).where(eq(leads.id, lead.id));
+  const notifier = recordingNotifier();
+  const alerts = createAlerts({ notifier, dashboardUrl: 'https://dash' });
+  // VLES answers, and the unit is no longer for sale.
+  const none = await json(runTool('check_availability', { project: 'zetira', house_type_id: 500 }, ctx({ alerts, vles: fakeClient({}) })));
+  expect(none).toEqual({ verified: false, reason: 'NONE_AVAILABLE' });
+  expect(notifier.sent).toEqual([]);
+  // VLES is down.
+  const down = { ...fakeClient({}), getUnit: async () => { throw new Error('down'); } };
+  const failed = await json(runTool('check_availability', { project: 'zetira', house_type_id: 500 }, ctx({ alerts, vles: down })));
+  expect(failed).toEqual({ verified: false, reason: 'VLES_UNAVAILABLE' });
+  expect(notifier.sent).toEqual([{ staffUserIds: [staffId], note: expect.objectContaining({ title: 'Cek ketersediaan unit' }) }]);
 });

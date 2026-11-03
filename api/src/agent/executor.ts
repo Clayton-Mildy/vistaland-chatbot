@@ -117,6 +117,9 @@ async function typeName(houseTypeId: number): Promise<string> {
   return row?.name ?? `tipe ${houseTypeId}`;
 }
 
+// Reasons stock could not be checked at all.
+const UNCHECKABLE: string[] = ['NOT_CONFIGURED', 'VLES_UNAVAILABLE'];
+
 const HANDOFF_VISIT = 'Simpan hari dan jam yang diminta konsumen dengan update_lead (timeline), lalu handoff_to_human dengan reason "jadwal kunjungan".';
 const SLOT_GONE = 'Jam ini baru saja terisi; tawarkan jam lain dari find_visit_slots.';
 const VISIT_ERRORS: Record<VisitError | 'NO_ACTIVE_VISIT', string> = {
@@ -163,8 +166,9 @@ const handlers: Handlers = {
     if (r.verified) {
       ctx.evidence.toolsCalled.add('check_availability');
       ctx.evidence.verifiedUnitNumbers.push(...r.units.map((u) => u.unitNumber));
-    } else if (ctx.alerts) {
-      // Moni tells the customer the team will check; this makes sure someone does.
+    } else if (ctx.alerts && UNCHECKABLE.includes(r.reason)) {
+      // Moni tells the customer the team will check; this makes sure someone does. A VLES answer
+      // of "no unit" (NONE_AVAILABLE) is a real answer, not a reason to alert.
       await ctx.alerts.availabilityUnverified(ctx.leadId, p.id, await typeName(i.house_type_id));
     }
     return r;

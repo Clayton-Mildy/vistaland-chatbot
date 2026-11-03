@@ -10,3 +10,4 @@ deploy/.env
 *.tsbuildinfo
 api/tests/.media
 api/media
+.DS_Store
