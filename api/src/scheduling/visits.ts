@@ -1,9 +1,9 @@
-import { and, asc, eq, gt, gte, inArray, lt, ne, sql, type SQL } from 'drizzle-orm';
+import { and, asc, eq, gt, gte, inArray, lt, notInArray, sql, type SQL } from 'drizzle-orm';
 import { getDb, type Db } from '../db/client.js';
 import { pgCode } from '../db/pgError.js';
 import { leads, projects, salesAgentProjects, salesAgents, visits } from '../db/schema/index.js';
 import { recordEvent, setLeadStage } from '../leads/repository.js';
-import type { DbOrTx } from '../outbound/repository.js';
+import { cancelPending, type DbOrTx } from '../outbound/repository.js';
 import { queueSalesAlerts } from '../outbound/salesAlert.js';
 import { ACTIVE_VISIT_STATUSES } from './roster.js';
 import { freeSlots, loadSlotData, type Slot } from './slots.js';
@@ -116,7 +116,7 @@ async function slotAt(
 }
 
 /**
- * Fairest first: fewest non-test, non-cancelled visits created in the last 7 days, then the one
+ * Fairest first: fewest non-test visits created in the last 7 days (not cancelled or replaced by a move), then the one
  * whose latest non-test visit was created longest ago (never assigned comes first), then by name.
  */
 async function byFairness(agentIds: string[], now: Date): Promise<string[]> {
@@ -129,7 +129,8 @@ async function byFairness(agentIds: string[], now: Date): Promise<string[]> {
     .where(inArray(salesAgents.id, agentIds))
     .groupBy(salesAgents.id)
     .orderBy(
-      sql`count(${visits.id}) filter (where ${ne(visits.status, 'cancelled')} and ${gt(visits.createdAt, since)})`,
+      // A moved visit leaves a 'rescheduled' row behind its new row; count the visit once.
+      sql`count(${visits.id}) filter (where ${notInArray(visits.status, ['cancelled', 'rescheduled'])} and ${gt(visits.createdAt, since)})`,
       sql`max(${visits.createdAt}) asc nulls first`,
       asc(salesAgents.name),
       asc(salesAgents.id)
@@ -203,6 +204,15 @@ async function lockActiveVisit(tx: Tx, visitId: string): Promise<Visit | VisitEr
 async function getVisit(visitId: string): Promise<Visit | null> {
   const [visit] = await getDb().select().from(visits).where(eq(visits.id, visitId)).limit(1);
   return visit ?? null;
+}
+
+/**
+ * Withdraws the visit's alerts still waiting to go out (held for template approval, say), so a
+ * moved or cancelled visit is never announced later with a stale time or agent. Call before
+ * queueSalesAlerts: on a reassignment the visit id stays and the new alerts must not dedupe away.
+ */
+async function withdrawSalesAlerts(tx: Tx, visitId: string): Promise<void> {
+  await cancelPending(tx, { visitId, kinds: ['sales_alert'] });
 }
 
 async function assignLead(leadId: string, salesAgentId: string): Promise<void> {
@@ -293,6 +303,7 @@ export async function rescheduleVisit(input: { visitId: string; startsAt: Date; 
       })
       .returning();
     const change: VisitChange = { kind: 'rescheduled', visit: visit!, previous };
+    await withdrawSalesAlerts(tx, previous.id);
     await queueSalesAlerts(tx, change, now);
     return { visit: visit!, change };
   });
@@ -321,6 +332,7 @@ export async function cancelVisit(input: { visitId: string; reason: string; acto
       .where(eq(visits.id, previous.id))
       .returning();
     const change: VisitChange = { kind: 'cancelled', visit: visit!, previous };
+    await withdrawSalesAlerts(tx, previous.id);
     await queueSalesAlerts(tx, change, now);
     return { visit: visit!, change };
   });
@@ -336,6 +348,8 @@ export async function reassignVisit(input: { visitId: string; salesAgentId: stri
   const current = await getVisit(input.visitId);
   if (!current) return fail('NOT_FOUND');
   if (!isActive(current.status)) return fail('NOT_ACTIVE');
+  // The visit's own agent always looks free here (the visit is excluded from busy), but it is no move.
+  if (input.salesAgentId === current.salesAgentId) return fail('AGENT_NOT_FREE');
   // loadSlotData lists only active agents who cover the project, so this checks all three.
   const slot = await slotAt(current.projectId, current.startsAt, now, { excludeVisitId: current.id, ignoreNotice: true });
   if (!slot?.freeAgentIds.includes(input.salesAgentId)) return fail('AGENT_NOT_FREE');
@@ -345,6 +359,7 @@ export async function reassignVisit(input: { visitId: string; salesAgentId: stri
     if (typeof previous === 'string') return previous;
     const [visit] = await tx.update(visits).set({ salesAgentId: agentId, updatedAt: new Date() }).where(eq(visits.id, previous.id)).returning();
     const change: VisitChange = { kind: 'reassigned', visit: visit!, previous };
+    await withdrawSalesAlerts(tx, previous.id);
     await queueSalesAlerts(tx, change, now);
     return { visit: visit!, change };
   });

@@ -92,6 +92,19 @@ it('booking assigns the agent with fewer visits this week', async () => {
   expect(agentOf(await book())).toBe(b.id);
 });
 
+it('a visit rescheduled once counts once for fairness', async () => {
+  // Andi: one visit moved once (an old rescheduled row plus its new row). Budi: two visits.
+  const moved = await existingVisit(a.id, atWib('2026-11-05', '09:00'), new Date(now.getTime() - 2 * DAY));
+  await getDb().update(visits).set({ status: 'rescheduled' }).where(eq(visits.id, moved.id));
+  await getDb()
+    .insert(visits)
+    .values({ leadId: moved.leadId, projectId: zetira, salesAgentId: a.id, startsAt: atWib('2026-11-05', '11:00'), endsAt: atWib('2026-11-05', '12:00'), createdBy: 'moni', rescheduledFrom: moved.id, createdAt: new Date(now.getTime() - 1 * DAY) });
+  await existingVisit(b.id, atWib('2026-11-05', '09:00'), new Date(now.getTime() - 3 * DAY));
+  await existingVisit(b.id, atWib('2026-11-05', '11:00'), new Date(now.getTime() - 3 * DAY));
+  // Counted twice, Andi would tie Budi at 2 and lose on recency; counted once, Andi has fewer.
+  expect(agentOf(await book())).toBe(a.id);
+});
+
 it('a fairness tie goes to the agent assigned longest ago', async () => {
   await existingVisit(a.id, atWib('2026-11-05', '09:00'), new Date(now.getTime() - 1 * DAY));
   await existingVisit(b.id, atWib('2026-11-05', '09:00'), new Date(now.getTime() - 3 * DAY));
@@ -208,6 +221,7 @@ it('reschedule moves to another agent when the agent is busy', async () => {
   const alerts = await alertsFor(r.visit.id);
   expect(alerts).toHaveLength(2);
   expect(alerts.map((x) => x.toPhone).sort()).toEqual([a.waPhone, b.waPhone].sort());
+  expect((await alertsFor(first.visit.id)).map((x) => x.status)).toEqual(['cancelled']);
 
   const after = (await getLead(lead))!;
   expect(after.assignedSalesId).toBe(b.id);
@@ -265,7 +279,8 @@ it('cancel sets the stage to cancelled and queues a cancel alert', async () => {
   const [event] = await listEvents(lead, ['visit_cancelled']);
   expect(event!.payload).toEqual({ visitId: first.visit.id, reason: 'Ada acara keluarga' });
   const alerts = await alertsFor(first.visit.id);
-  expect(alerts.map((x) => x.params[1]).sort()).toEqual(['Kunjungan baru', 'Kunjungan dibatalkan']);
+  // The booking alert, still held, is withdrawn so it never goes out after the cancellation.
+  expect(alerts.map((x) => `${x.params[1]} ${x.status}`).sort()).toEqual(['Kunjungan baru cancelled', 'Kunjungan dibatalkan pending']);
   expect(await cancelVisit({ visitId: first.visit.id, reason: 'lagi', actor: 'moni' }, now)).toEqual({ ok: false, error: 'NOT_ACTIVE' });
 });
 
@@ -288,8 +303,24 @@ it('reassign to a free agent moves the visit and the lead and alerts both agents
   expect((await getLead(lead))!.assignedSalesId).toBe(b.id);
   const [event] = await listEvents(lead, ['visit_reassigned']);
   expect(event!.payload).toEqual({ visitId: first.visit.id, from: a.id, to: b.id, salesName: 'Budi' });
-  const labels = (await alertsFor(first.visit.id)).map((x) => `${x.toPhone} ${x.params[1]}`).sort();
-  expect(labels).toEqual([`${a.waPhone} Kunjungan baru`, `${a.waPhone} Kunjungan dialihkan ke sales lain`, `${b.waPhone} Kunjungan baru`].sort());
+  const labels = (await alertsFor(first.visit.id)).map((x) => `${x.toPhone} ${x.params[1]} ${x.status}`).sort();
+  expect(labels).toEqual(
+    [
+      `${a.waPhone} Kunjungan baru cancelled`,
+      `${a.waPhone} Kunjungan dialihkan ke sales lain pending`,
+      // Same visit id: the new agent's alert must not be swallowed by the dedupe key.
+      `${b.waPhone} Kunjungan baru pending`,
+    ].sort()
+  );
+});
+
+it('reassigning a visit to its own agent is refused and writes nothing', async () => {
+  const lead = await newLead();
+  const first = await book('10:00', lead);
+  expect(await reassignVisit({ visitId: first.visit.id, salesAgentId: a.id, actor: 'staff:x' }, now)).toEqual({ ok: false, error: 'AGENT_NOT_FREE' });
+  expect((await getVisitView(first.visit.id))!.updatedAt).toEqual(first.visit.updatedAt);
+  expect(await listEvents(lead, ['visit_reassigned'])).toEqual([]);
+  expect((await alertsFor(first.visit.id)).map((x) => `${x.params[1]} ${x.status}`)).toEqual(['Kunjungan baru pending']);
 });
 
 it('an outcome before the visit starts is TOO_EARLY, and visited sets the stage', async () => {
