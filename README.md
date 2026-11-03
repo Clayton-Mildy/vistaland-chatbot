@@ -37,8 +37,10 @@ cd api && VLES_API_KEY=$(security find-generic-password -s vles-api-key-dev -w) 
 
 Moni answers WhatsApp messages that ChakraHQ forwards to `POST /webhook`. It needs:
 
-- `ANTHROPIC_API_KEY` (and optionally `MONI_MODEL`, default `claude-opus-5-5`, and `MONI_EFFORT`,
-  default `medium`). Without a key every conversation is handed to staff instead of answered.
+- `ANTHROPIC_API_KEY`, or, without one, `CLAUDE_CODE_OAUTH_TOKEN` (a Claude account's OAuth token
+  from `claude setup-token`). The API key always wins when both are set. Optionally `MONI_MODEL`,
+  default `claude-opus-5-5`, and `MONI_EFFORT`, default `medium`. With neither credential every
+  conversation is handed to staff instead of answered.
 - `CHAKRA_PLUGIN_ID`, `CHAKRA_ACCESS_TOKEN`, `CHAKRA_WEBHOOK_SECRET`, and in ChakraHQ a webhook to
   `https://<DOMAIN>/webhook`. Webhooks with a wrong signature are acknowledged and dropped.
 - `PUBLIC_BASE_URL`: WhatsApp downloads materials from `PUBLIC_BASE_URL/media/<file>`, so it must

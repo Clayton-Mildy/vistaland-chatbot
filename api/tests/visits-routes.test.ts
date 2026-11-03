@@ -39,6 +39,7 @@ const changes: VisitChange[] = [];
 const alerts: Alerts = {
   leadNeedsStaff: async () => undefined,
   availabilityUnverified: async () => undefined,
+  visitNeedsScheduling: async () => undefined,
   visitChanged: async (c) => void changes.push(c),
   outboundFailed: async () => undefined,
 };

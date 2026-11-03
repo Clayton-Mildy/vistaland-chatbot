@@ -10,6 +10,8 @@ import type { Notifier, PushNote } from './push.js';
 export type Alerts = {
   leadNeedsStaff(leadId: string, reason: string, kind: 'handoff' | 'failure'): Promise<void>;
   availabilityUnverified(leadId: string, projectId: number, typeName: string): Promise<void>;
+  // A customer asked for a visit at a project whose gallery hours or sales roster are not set.
+  visitNeedsScheduling(leadId: string, projectId: number, requested: string): Promise<void>;
   visitChanged(change: VisitChange): Promise<void>;
   outboundFailed(row: OutboundRow): Promise<void>;
 };
@@ -84,6 +86,19 @@ export function createAlerts(deps: { notifier: Notifier | null; dashboardUrl: st
         await push(n, to, {
           title: kind === 'handoff' ? 'Perlu ditangani' : 'Moni gagal menjawab',
           body: `${lead.who}: ${reason}`,
+          url: leadUrl(leadId),
+        });
+      }),
+
+    visitNeedsScheduling: (leadId, projectId, requested) =>
+      guarded('visitNeedsScheduling', async (n) => {
+        const lead = await leadInfo(leadId);
+        if (!lead) return;
+        let to = await accountsCovering(projectId);
+        if (to.length === 0) to = await activeAdmins();
+        await push(n, to, {
+          title: 'Atur jadwal kunjungan',
+          body: `${lead.who} minta kunjungan ${requested}. Jadwal proyek belum diatur, mohon hubungi konsumen.`,
           url: leadUrl(leadId),
         });
       }),

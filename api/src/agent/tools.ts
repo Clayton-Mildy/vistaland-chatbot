@@ -155,7 +155,7 @@ export const MONI_TOOLS: Anthropic.Beta.BetaTool[] = [
     reason: { type: 'string', description: 'Alasan pembatalan dari konsumen.' },
   }, ['reason']),
   t('handoff_to_human', 'Serahkan percakapan ke tim sales: Moni berhenti membalas sampai tim selesai. Tetap kirim pesan singkat ke konsumen lewat respond_to_customer.', {
-    reason: { type: 'string', description: 'Alasan singkat, misalnya "jadwal kunjungan" atau "minta nego harga".' },
+    reason: { type: 'string', description: 'Alasan singkat, misalnya "minta nego harga" atau "minta ditelepon".' },
   }, ['reason']),
   t('opt_out', 'Catat bahwa konsumen tidak ingin dihubungi lagi. Tidak ada follow-up setelah ini.', {}),
   t('respond_to_customer', 'Balasan akhir untuk konsumen pada giliran ini. Wajib dipanggil tepat satu kali di setiap giliran.', {

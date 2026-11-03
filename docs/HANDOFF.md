@@ -26,8 +26,10 @@ Read this first if you are picking the work up in a new session or account.
 
 ## Next steps, in order
 
-1. **Add the key.** Put `CLAUDE_CODE_OAUTH_TOKEN=...` in `api/.env`.
-   - This app can use the claude Oauth account to call any model, but when the API key its provided, all the ai call must use from the API Key.
+1. **Add the key.** Put `ANTHROPIC_API_KEY=...` in `api/.env` for the real rehearsal on Opus 5.5.
+   - The app also takes `CLAUDE_CODE_OAUTH_TOKEN` (a Claude subscription token) when no API key is set; the API key always wins.
+   - Checked 2026-11-03: a subscription token works on the direct API only with `claude-haiku-4-5-20251001`. Opus 5.5, Opus 4.5 and Haiku 5.5 all answer 429 `rate_limit_error` "Error", even when the same token works in `claude -p`. vinindo-app runs on Haiku 4.5 for the same reason.
+   - A Haiku 4.5 dry run on 2026-11-03 showed the wiring, tools and prompt caching work, but Haiku never calls `book_visit`: it keeps asking for budget and bedrooms after the customer confirms. Booking, rescheduling and cancelling still need the Opus run.
    - The model is `claude-opus-5-5` (`MONI_MODEL`) and the effort is `medium` (`MONI_EFFORT`).
    - **The rehearsal spends API credit. The user must approve the spend first.** It should cost well under a dollar.
 2. **Set up the data the chats need.**

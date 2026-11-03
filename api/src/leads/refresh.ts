@@ -1,6 +1,6 @@
 import { and, asc, eq, isNull, lt, lte, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
-import type { AnthropicLike } from '../agent/claude.js';
+import { effortFor, type AnthropicLike } from '../agent/claude.js';
 import { getDb } from '../db/client.js';
 import { contacts, conversations, leads } from '../db/schema/index.js';
 import { fillBlankFacts, getLead, listEvents, recentMessages, type LeadFactsPatch, type Message } from './repository.js';
@@ -134,7 +134,7 @@ async function summarise(conversationId: string, leadId: string, deps: RefreshDe
     max_tokens: 4000,
     betas: [FALLBACK_BETA],
     fallbacks: 'default',
-    output_config: { effort: 'low', format: { type: 'json_schema', schema: SUMMARY_SCHEMA as unknown as Record<string, unknown> } },
+    output_config: { ...effortFor(deps.model, 'low'), format: { type: 'json_schema', schema: SUMMARY_SCHEMA as unknown as Record<string, unknown> } },
     system: SYSTEM,
     messages: [{ role: 'user', content }],
   });

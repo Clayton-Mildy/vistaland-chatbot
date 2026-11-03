@@ -276,13 +276,35 @@ export async function setLeadStage(leadId: string, to: LeadStage, actor: string,
   if (!lead) throw new Error(`Lead ${leadId} not found`);
   if (lead.stage === to) return lead;
   if (!opts.force && !canMoniSetStage(lead.stage, to)) throw new StageError(lead.stage, to);
+  const hotCold = ratingAfter(lead.hotCold, to);
   const [row] = await getDb()
     .update(leads)
-    .set({ stage: to, updatedAt: new Date() })
+    .set({ stage: to, ...(hotCold !== lead.hotCold ? { hotCold } : {}), updatedAt: new Date() })
     .where(eq(leads.id, leadId))
     .returning();
   await recordEvent(leadId, 'stage_changed', { from: lead.stage, to }, actor);
+  if (hotCold !== lead.hotCold) await recordEvent(leadId, 'fact_updated', { keys: ['hotCold'] }, 'system');
   return row!;
+}
+
+const STAGE_RATING: Partial<Record<LeadStage, 'hot' | 'warm'>> = {
+  qualified: 'warm',
+  recommended: 'warm',
+  visit_proposed: 'hot',
+  visit_scheduled: 'hot',
+  visit_confirmed: 'hot',
+  visited: 'hot',
+};
+
+/**
+ * The owner's hot/warm/cold column should never sit empty for a moving lead: a stage fills a blank
+ * rating, and a requested or booked visit always means hot. A rating Moni or staff set is otherwise kept.
+ */
+function ratingAfter(current: Lead['hotCold'], stage: LeadStage): Lead['hotCold'] {
+  const r = STAGE_RATING[stage];
+  if (!r) return current;
+  if (current == null || r === 'hot') return r;
+  return current;
 }
 
 export async function setLeadProject(

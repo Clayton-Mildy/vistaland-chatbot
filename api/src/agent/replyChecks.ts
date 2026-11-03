@@ -11,6 +11,8 @@ export type ReplyEvidence = {
   subsidiNotes: string | null;
   // The lead has a visit (from the start of the turn, or booked or moved during it).
   visitBooked: boolean;
+  // Staff were told about this chat this turn (a handoff, or a tool that alerts staff itself).
+  staffNotified: boolean;
   // Sales names the visit tools returned; the only ones Moni may introduce.
   salesNames: string[];
   // The lead's own name and the contact's WhatsApp name: "dibantu Kak Rina?" addresses the customer.
@@ -35,6 +37,13 @@ const BOOKING_CLAIMS = [
   /\b(sudah|berhasil|telah)\s+(dijadwalkan|terjadwal|dikonfirmasi|terkonfirmasi)\b/i,
   /\b(sudah|berhasil|telah)\s+(saya|moni|kami)\s+(jadwalkan|konfirmasi)\b/i,
   /\bjadwal(nya)?\s+(sudah\s+)?(fix|terkunci)\b/i,
+];
+// Promises that the team takes over. Without a handoff nobody is told and the customer waits.
+const HANDOFF_CLAIMS = [
+  /\b(serahkan|teruskan|oper)(kan)?\b.{0,40}?\b(ke|kepada)\s+tim\b/i,
+  /\b(diteruskan|diserahkan)\s+(ke|kepada)\s+tim\b/i,
+  /\btim\s+(sales\s+)?(kami\s+)?(akan\s+)?(segera\s+)?(menghubungi|hubungi|menindaklanjuti|follow[- ]?up)\b/i,
+  /\b(cek|cross-?check|konfirmasi)(kan)?\s+(dulu\s+)?(ke|dengan)\s+tim\b/i,
 ];
 // Case-sensitive on "Kak" and the capital, so "bisa dibantu kak untuk ..." is not a name.
 const SALES_INTRO = /dibantu\s+(?:oleh\s+)?Kak\s+(\p{Lu}[\p{L}'-]+)/gu;
@@ -63,6 +72,9 @@ export function checkReply(text: string, ev: ReplyEvidence): { ok: true } | { ok
     if (!verified.has(unitKey(block!, number!))) problems.push(`Unit ${raw.trim()} belum dicek ketersediaannya.`);
   }
   if (SUBSIDY_VERDICT.test(text) && !ev.subsidiNotes) problems.push('Jangan menilai kelayakan subsidi.');
+  if (!ev.staffNotified && !ev.visitBooked && HANDOFF_CLAIMS.some((re) => re.test(text))) {
+    problems.push('Kamu menulis bahwa tim akan menangani atau menghubungi, tetapi belum memanggil handoff_to_human. Panggil handoff_to_human jika memang perlu tim, atau jangan menjanjikannya.');
+  }
   if (!ev.visitBooked && BOOKING_CLAIMS.some((re) => re.test(text))) {
     problems.push('Jangan menyatakan kunjungan sudah terjadwal sebelum book_visit berhasil.');
   }

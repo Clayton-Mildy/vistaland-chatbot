@@ -3,7 +3,7 @@ import { getConfig } from './config.js';
 import { buildApp } from './app.js';
 import { getVlesClient, startVlesSync } from './vles/sync.js';
 import { createChakraClient } from './chakra/client.js';
-import { createAnthropic } from './agent/claude.js';
+import { claudeAuth, createAnthropic } from './agent/claude.js';
 import { createDebouncer } from './router/debounce.js';
 import { chakraTransport } from './router/transport.js';
 import { runTurn } from './router/turn.js';
@@ -24,7 +24,9 @@ const chakra = createChakraClient({
   accessToken: config.CHAKRA_ACCESS_TOKEN,
 });
 const anthropic = createAnthropic();
-if (!anthropic) console.log('[moni] ANTHROPIC_API_KEY is empty - every turn will be handed to staff');
+const auth = claudeAuth(config);
+if (auth === 'none') console.log('[moni] no ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN - every turn will be handed to staff');
+else console.log(`[moni] Claude calls use ${auth === 'api_key' ? 'the API key' : 'the Claude account OAuth token'}`);
 
 // Push stays off until both VAPID keys are set.
 const alerts = createAlerts({

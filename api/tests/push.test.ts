@@ -156,6 +156,24 @@ it('availabilityUnverified goes to the assigned agent, else the covering agents,
   expect(notifier.sent[2]!.staffUserIds).toEqual([admin.id]);
 });
 
+it('visitNeedsScheduling goes to the agents covering the project, else admins', async () => {
+  const admin = await staff('admin@vista.id', 'admin');
+  const rep = await staff('rep@vista.id');
+  const { lead, project } = await leadWithAgent({ agentStaff: rep.id });
+  const notifier = recordingNotifier();
+  const alerts = createAlerts({ notifier, dashboardUrl: URL_BASE });
+  await alerts.visitNeedsScheduling(lead.id, project.id, 'Sabtu, 7 November 2026 10.00 WIB');
+  expect(notifier.sent[0]!.staffUserIds).toEqual([rep.id]);
+  expect(notifier.sent[0]!.note).toEqual({
+    title: 'Atur jadwal kunjungan',
+    body: 'Sari minta kunjungan Sabtu, 7 November 2026 10.00 WIB. Jadwal proyek belum diatur, mohon hubungi konsumen.',
+    url: `${URL_BASE}/leads/${lead.id}`,
+  });
+  // nobody covers it: admins
+  await alerts.visitNeedsScheduling(lead.id, project.id + 999, 'besok');
+  expect(notifier.sent[1]!.staffUserIds).toEqual([admin.id]);
+});
+
 it('alerts never throw', async () => {
   const { lead, project } = await leadWithAgent();
   await staff('admin@vista.id', 'admin');

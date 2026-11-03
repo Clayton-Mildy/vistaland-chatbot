@@ -116,6 +116,21 @@ it('an unverified availability check or an empty search is not stock evidence', 
   expect(c.evidence.toolsCalled.has('search_units')).toBe(false);
 });
 
+it('update_lead with a budget or bedrooms qualifies an engaged lead without being asked', async () => {
+  const c = ctx();
+  expect(await json(runTool('update_lead', { name: 'Sari' }, c))).toMatchObject({ stage: 'new' });
+  expect(await json(runTool('update_lead', { bedrooms_wanted: 2 }, c))).toMatchObject({ stage: 'qualified' });
+  expect((await getLead(lead.id))!.hotCold).toBe('warm');
+  // An explicit stage from Moni still wins.
+  expect(await json(runTool('update_lead', { budget_monthly: 3_000_000, stage: 'visit_proposed' }, c))).toMatchObject({ stage: 'visit_proposed' });
+});
+
+it('update_lead does not pull a lead back to qualified', async () => {
+  const c = ctx();
+  await runTool('update_lead', { stage: 'visit_proposed' }, c);
+  expect(await json(runTool('update_lead', { budget_price: 450_000_000 }, c))).toMatchObject({ stage: 'visit_proposed' });
+});
+
 it('update_lead makes the customer\'s own budget quotable this turn', async () => {
   const c = ctx();
   await runTool('update_lead', { budget_price: 450_000_000, budget_monthly: 3_500_000 }, c);
@@ -156,19 +171,52 @@ it('find_visit_slots returns labelled slots for Saturday', async () => {
   expect((await runTool('find_visit_slots', { project: 'zetira', date_from: '2026-11-07', time: '9:00' }, ctx())).isError).toBe(true);
 });
 
-it('find_visit_slots without gallery hours returns NO_GALLERY_HOURS', async () => {
+it('find_visit_slots without gallery hours returns NO_GALLERY_HOURS and keeps Moni chatting', async () => {
   const r = await json(runTool('find_visit_slots', { project: 'zetira', date_from: '2026-11-07' }, ctx()));
   expect(r).toMatchObject({ slots: [], reason: 'NO_GALLERY_HOURS' });
   expect(r.message).toContain('update_lead');
-  expect(r.message).toContain('jadwal kunjungan');
+  // Staff are told by the tool itself; Moni does not hand the chat over.
+  expect(r.message).toContain('Jangan handoff_to_human');
+});
+
+it('find_visit_slots with no schedule alerts staff once per turn with the requested time', async () => {
+  const notifier = recordingNotifier();
+  const admin = await createStaff({ email: 'admin@vista.id', password: 'correct-horse-1', displayName: 'Admin', role: 'admin' });
+  const c = ctx({ alerts: createAlerts({ notifier, dashboardUrl: 'https://dash' }) });
+  await runTool('find_visit_slots', { project: 'zetira', date_from: '2026-11-07', time: '10:00' }, c);
+  await runTool('find_visit_slots', { project: 'zetira', date_from: '2026-11-08', part_of_day: 'siang' }, c);
+  expect(notifier.sent).toHaveLength(1);
+  expect(notifier.sent[0]!.staffUserIds).toEqual([admin.id]);
+  expect(notifier.sent[0]!.note.title).toBe('Atur jadwal kunjungan');
+  expect(notifier.sent[0]!.note.body).toContain('Sabtu, 7 November 2026 10.00 WIB');
+  // A new turn alerts again, and a part of day stands in for a missing time.
+  const next = ctx({ alerts: createAlerts({ notifier, dashboardUrl: 'https://dash' }) });
+  await runTool('find_visit_slots', { project: 'zetira', date_from: '2026-11-08', part_of_day: 'siang' }, next);
+  expect(notifier.sent[1]!.note.body).toContain('Minggu, 8 November 2026 siang');
 });
 
 it('find_visit_slots tells no roster from no free agent', async () => {
   await getDb().update(projects).set({ galleryHours: { '6': ['09:00', '17:00'] } }).where(eq(projects.id, zetira.id));
   expect(await json(runTool('find_visit_slots', { project: 'zetira', date_from: '2026-11-07' }, ctx()))).toMatchObject({ slots: [], reason: 'NO_ROSTER' });
-  // An agent covers Zetira but works no Saturday hours.
-  await createAgent({ name: 'Andi', waPhone: '6281000001', staffUserId: null, projectIds: [zetira.id] });
+  // An agent covers Zetira but has no weekly hours there at all: still no roster to book from.
+  const andi = await createAgent({ name: 'Andi', waPhone: '6281000001', staffUserId: null, projectIds: [zetira.id] });
+  expect(await json(runTool('find_visit_slots', { project: 'zetira', date_from: '2026-11-07', date_to: '2026-11-08' }, ctx()))).toMatchObject({ slots: [], reason: 'NO_ROSTER' });
+  // With Monday hours only, a weekend search finds no free agent instead.
+  await setAvailability(andi.id, [{ projectId: zetira.id, weekday: 1, start: '09:00', end: '17:00' }]);
   expect(await json(runTool('find_visit_slots', { project: 'zetira', date_from: '2026-11-07', date_to: '2026-11-08' }, ctx()))).toMatchObject({ slots: [], reason: 'NONE_FREE' });
+});
+
+it('find_visit_slots with nobody free offers the nearest real slots after the requested days', async () => {
+  await getDb().update(projects).set({ galleryHours: { '1': ['09:00', '17:00'], '6': ['09:00', '17:00'] } }).where(eq(projects.id, zetira.id));
+  const andi = await createAgent({ name: 'Andi', waPhone: '6281000001', staffUserId: null, projectIds: [zetira.id] });
+  await setAvailability(andi.id, [{ projectId: zetira.id, weekday: 1, start: '09:00', end: '12:00' }]);
+  // Saturday asked at 10:00; the agent only works Monday mornings.
+  const r = await json(runTool('find_visit_slots', { project: 'zetira', date_from: '2026-11-07', time: '10:00' }, ctx()));
+  expect(r).toMatchObject({ slots: [], reason: 'NONE_FREE' });
+  expect(r.next_available.length).toBeGreaterThan(0);
+  expect(r.next_available.every((s: { date: string }) => s.date === '2026-11-09')).toBe(true);
+  expect(r.next_available[0]).toMatchObject({ date: '2026-11-09', time: '10:00', label: 'Senin, 9 November 2026 10.00 WIB' });
+  expect(r.message).toContain('next_available');
 });
 
 it('book_visit books, records evidence and alerts the agent', async () => {

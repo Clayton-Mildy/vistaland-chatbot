@@ -23,6 +23,7 @@ const ev = (o: Partial<ReplyEvidence> = {}): ReplyEvidence => ({
   verifiedUnitNumbers: [],
   subsidiNotes: null,
   visitBooked: false,
+  staffNotified: false,
   salesNames: [],
   customerNames: [],
   ...o,
@@ -126,4 +127,23 @@ it('"dibantu oleh Kak Sari" still fails when only Budi was booked and Sari is no
     ok: false,
     problems: ['Nama sales "Sari" tidak berasal dari book_visit.'],
   });
+});
+
+it('rejects a promise that the team takes over unless staff were really told', () => {
+  const claims = [
+    'Untuk jawaban yang akurat, Moni perlu serahkan ke tim sales kami dulu ya, Kak.',
+    'Moni sudah teruskan keluhan Kakak ke tim, dan mereka akan menghubungi Kakak.',
+    'Tim sales kami akan segera menghubungi Kakak ya.',
+    'Moni perlu cross-check ke tim sales kami untuk detail promonya.',
+    'Pertanyaan Kakak sudah diteruskan ke tim.',
+  ];
+  for (const text of claims) {
+    expect(checkReply(text, ev())).toEqual({ ok: false, problems: [expect.stringContaining('handoff_to_human')] });
+    expect(checkReply(text, ev({ staffNotified: true })).ok).toBe(true);
+  }
+  // After a booking the sales person does contact the customer (FLOW MONI step 8).
+  expect(checkReply('Nanti Kak Budi dari tim sales kami akan menghubungi Kakak untuk koordinasi ya.', ev({ visitBooked: true })).ok).toBe(true);
+  // Talking about the team without promising a takeover is fine.
+  expect(checkReply('Nanti saat kunjungan, tim kami bisa jelasin detail fasilitasnya ya, Kak.', ev()).ok).toBe(true);
+  expect(checkReply('Kalau Kakak mau, Moni bisa hubungkan dengan tim sales kami.', ev()).ok).toBe(true);
 });

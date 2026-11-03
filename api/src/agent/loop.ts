@@ -1,5 +1,5 @@
 import type Anthropic from '@anthropic-ai/sdk';
-import type { AnthropicLike } from './claude.js';
+import { effortFor, type AnthropicLike } from './claude.js';
 import { runTool, type QueuedMaterial, type SimulationRecord, type TurnContext } from './executor.js';
 import { checkReply } from './replyChecks.js';
 import { MONI_TOOLS, TOOL_INPUTS } from './tools.js';
@@ -46,7 +46,7 @@ export async function runAgentTurn(
   client: AnthropicLike | null
 ): Promise<AgentTurnResult> {
   const trace: TraceEntry[] = [];
-  if (!client) return { kind: 'failed', reason: 'AI_NOT_CONFIGURED', detail: 'ANTHROPIC_API_KEY is not set', trace };
+  if (!client) return { kind: 'failed', reason: 'AI_NOT_CONFIGURED', detail: 'neither ANTHROPIC_API_KEY nor CLAUDE_CODE_OAUTH_TOKEN is set', trace };
   const { ctx } = input;
   const messages: Anthropic.Beta.BetaMessageParam[] = [...input.history, { role: 'user', content: input.latest }];
   let failsafeUsed = false;
@@ -60,7 +60,7 @@ export async function runAgentTurn(
         max_tokens: 16000,
         betas: [FALLBACK_BETA],
         fallbacks: 'default',
-        output_config: { effort: input.settings.effort },
+        output_config: effortFor(input.settings.model, input.settings.effort),
         system: input.system,
         tools: MONI_TOOLS,
         messages,

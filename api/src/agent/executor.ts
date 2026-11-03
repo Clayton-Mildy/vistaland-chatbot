@@ -19,7 +19,7 @@ import {
 } from '../leads/repository.js';
 import type { Alerts } from '../notify/alerts.js';
 import { MAX_RANGE_DAYS, freeSlots, loadSlotData, pickSlots } from '../scheduling/slots.js';
-import { addDays, atWib } from '../scheduling/time.js';
+import { addDays, atWib, wibLabel } from '../scheduling/time.js';
 import {
   activeVisitForLead,
   bookVisit,
@@ -63,6 +63,8 @@ export type TurnContext = {
   evidence: ReplyEvidence;
   handoffReason: string | null;
   simulations: SimulationRecord[];
+  // Staff were told this turn that a visit request could not be scheduled; tell them once.
+  scheduleAlerted: boolean;
 };
 
 export function newTurnContext(input: {
@@ -88,6 +90,7 @@ export function newTurnContext(input: {
     now: input.now,
     isTest: input.isTest,
     alerts: input.alerts,
+    scheduleAlerted: false,
     queuedMaterials: [],
     evidence: {
       knownAmounts: [],
@@ -95,6 +98,7 @@ export function newTurnContext(input: {
       verifiedUnitNumbers: [],
       subsidiNotes: input.subsidiNotes,
       visitBooked: input.activeVisit !== null,
+      staffNotified: false,
       salesNames: input.activeVisit ? [input.activeVisit.salesName] : [],
       customerNames: (input.customerNames ?? []).filter((n): n is string => !!n),
     },
@@ -123,7 +127,23 @@ async function typeName(houseTypeId: number): Promise<string> {
 // Reasons stock could not be checked at all.
 const UNCHECKABLE: string[] = ['NOT_CONFIGURED', 'VLES_UNAVAILABLE'];
 
-const HANDOFF_VISIT = 'Simpan hari dan jam yang diminta konsumen dengan update_lead (timeline), lalu handoff_to_human dengan reason "jadwal kunjungan".';
+// Without a schedule the tool tells staff itself, so Moni notes the time and keeps the chat going.
+const UNSCHEDULED_VISIT =
+  'Tim sales sudah diberi tahu. Simpan hari dan jam yang diminta konsumen dengan update_lead (timeline, stage "visit_proposed"). Sampaikan bahwa waktunya sudah dicatat dan tim sales akan menghubungi untuk mengonfirmasi jam yang tersedia; jangan menyebut jadwal sudah pasti. Jangan handoff_to_human; lanjutkan membantu konsumen.';
+
+/** "Sabtu, 7 November 2026 10.00 WIB", or "Minggu, 8 November 2026 siang" without a time. */
+function requestedLabel(i: { date_from: string; time?: string; part_of_day?: string }): string {
+  if (i.time) return wibLabel(atWib(i.date_from, i.time));
+  const day = wibLabel(atWib(i.date_from, '12:00')).replace(/ \d{2}\.\d{2} WIB$/, '');
+  return i.part_of_day ? `${day} ${i.part_of_day}` : day;
+}
+
+async function alertUnscheduled(ctx: TurnContext, projectId: number, i: { date_from: string; time?: string; part_of_day?: string }) {
+  ctx.evidence.staffNotified = true;
+  if (ctx.scheduleAlerted || ctx.isTest || !ctx.alerts) return;
+  ctx.scheduleAlerted = true;
+  await ctx.alerts.visitNeedsScheduling(ctx.leadId, projectId, requestedLabel(i));
+}
 const SLOT_GONE = 'Jam ini baru saja terisi; tawarkan jam lain dari find_visit_slots.';
 const VISIT_ERRORS: Record<VisitError | 'NO_ACTIVE_VISIT', string> = {
   SLOT_TAKEN: SLOT_GONE,
@@ -169,10 +189,11 @@ const handlers: Handlers = {
     if (r.verified) {
       ctx.evidence.toolsCalled.add('check_availability');
       ctx.evidence.verifiedUnitNumbers.push(...r.units.map((u) => u.unitNumber));
-    } else if (ctx.alerts && UNCHECKABLE.includes(r.reason)) {
+    } else if (UNCHECKABLE.includes(r.reason)) {
       // Moni tells the customer the team will check; this makes sure someone does. A VLES answer
       // of "no unit" (NONE_AVAILABLE) is a real answer, not a reason to alert.
-      await ctx.alerts.availabilityUnverified(ctx.leadId, p.id, await typeName(i.house_type_id));
+      ctx.evidence.staffNotified = true;
+      await ctx.alerts?.availabilityUnverified(ctx.leadId, p.id, await typeName(i.house_type_id));
     }
     return r;
   },
@@ -236,11 +257,14 @@ const handlers: Handlers = {
     for (const v of [i.budget_price, i.budget_monthly, i.dp_budget]) if (v !== undefined) ctx.evidence.knownAmounts.push(v);
     // A name learned this turn may be used to address the customer ("dibantu Kak Rina?").
     if (i.name) ctx.evidence.customerNames.push(i.name);
-    if (i.stage) {
+    // A known budget or need is what "qualified" means; do not wait for Moni to say so.
+    const qualifies = lead.budgetPrice != null || lead.budgetMonthly != null || lead.dpBudget != null || lead.bedroomsWanted != null;
+    const stage = i.stage ?? (qualifies && (lead.stage === 'new' || lead.stage === 'engaged') ? 'qualified' : undefined);
+    if (stage) {
       try {
-        lead = await setLeadStage(ctx.leadId, i.stage, 'moni');
+        lead = await setLeadStage(ctx.leadId, stage, 'moni');
       } catch (err) {
-        if (err instanceof StageError) throw new ToolError(`Data tersimpan, tetapi tahap tidak bisa diubah dari ${lead.stage} ke ${i.stage}.`);
+        if (err instanceof StageError) throw new ToolError(`Data tersimpan, tetapi tahap tidak bisa diubah dari ${lead.stage} ke ${stage}.`);
         throw err;
       }
     }
@@ -256,14 +280,30 @@ const handlers: Handlers = {
     const data = await loadSlotData(p.id, range.from, range.to);
     if (!data) throw new ToolError(`Proyek "${i.project}" tidak dikenal.`);
     if (!Object.values(data.project.galleryHours ?? {}).some(Boolean)) {
-      return { slots: [], reason: 'NO_GALLERY_HOURS', message: `Jam galeri proyek ini belum diatur. ${HANDOFF_VISIT}` };
+      await alertUnscheduled(ctx, p.id, i);
+      return { slots: [], reason: 'NO_GALLERY_HOURS', message: `Jam galeri proyek ini belum diatur. ${UNSCHEDULED_VISIT}` };
     }
-    if (data.agents.length === 0) {
-      return { slots: [], reason: 'NO_ROSTER', message: `Belum ada sales yang bertugas di proyek ini. ${HANDOFF_VISIT}` };
+    // An agent with no weekly hours here can never take a visit, so it does not count as a roster.
+    if (!data.agents.some((a) => a.availability.length > 0)) {
+      await alertUnscheduled(ctx, p.id, i);
+      return { slots: [], reason: 'NO_ROSTER', message: `Belum ada sales yang bertugas di proyek ini. ${UNSCHEDULED_VISIT}` };
     }
     const slots = pickSlots(freeSlots(data, range, ctx.now), { partOfDay: i.part_of_day, time: i.time });
     if (slots.length === 0) {
-      return { slots: [], reason: 'NONE_FREE', message: 'Tidak ada jam kosong pada tanggal ini; tawarkan hari lain dan cari lagi.' };
+      // Look ahead so Moni offers days a sales person really works, never a guess.
+      const ahead = { from: addDays(range.to, 1), to: addDays(range.to, MAX_RANGE_DAYS) };
+      const later = await loadSlotData(p.id, ahead.from, ahead.to);
+      const free = later ? freeSlots(later, ahead, ctx.now) : [];
+      const firstDay = free[0]?.date;
+      const next = pickSlots(free.filter((s) => s.date === firstDay), { partOfDay: i.part_of_day, time: i.time });
+      return {
+        slots: [],
+        reason: 'NONE_FREE',
+        next_available: next.map((s) => ({ date: s.date, time: s.time, label: s.label })),
+        message: next.length
+          ? 'Tidak ada sales yang bisa pada tanggal yang diminta. Sampaikan itu, lalu tawarkan pilihan dari next_available saja; jangan menawarkan hari atau jam lain.'
+          : 'Tidak ada sales yang bisa dalam dua minggu ke depan. Simpan waktu yang diminta dengan update_lead (timeline) dan handoff_to_human "jadwal kunjungan".',
+      };
     }
     return { slots: slots.map((s) => ({ date: s.date, time: s.time, label: s.label })) };
   },
@@ -296,6 +336,7 @@ const handlers: Handlers = {
 
   async handoff_to_human(i, ctx) {
     ctx.handoffReason = i.reason;
+    ctx.evidence.staffNotified = true;
     return { ok: true, note: 'Tim sales akan melanjutkan percakapan ini. Kirim pesan singkat ke konsumen.' };
   },
 

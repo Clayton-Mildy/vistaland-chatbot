@@ -112,6 +112,20 @@ it('setLeadStage enforces Moni rules unless forced and records the change', asyn
   expect((await listEvents(lead.id, ['stage_changed']))[0]!.payload).toEqual({ from: 'qualified', to: 'visit_scheduled' });
 });
 
+it('a stage change fills a blank rating, and visit stages make the lead hot', async () => {
+  const warm = await setLeadStage(lead.id, 'qualified', 'moni');
+  expect(warm.hotCold).toBe('warm');
+  // A rating already set (by Moni or staff) is not lowered or replaced with warm.
+  await updateLeadFacts(lead.id, { hotCold: 'cold' }, 'moni');
+  expect((await setLeadStage(lead.id, 'recommended', 'moni')).hotCold).toBe('cold');
+  // Asking for a visit or booking one always means hot.
+  expect((await setLeadStage(lead.id, 'visit_proposed', 'moni')).hotCold).toBe('hot');
+  const ev = await listEvents(lead.id, ['fact_updated']);
+  expect(ev.filter((e) => e.actor === 'system').map((e) => e.payload)).toEqual([{ keys: ['hotCold'] }, { keys: ['hotCold'] }]);
+  // Lost does not touch the rating.
+  expect((await setLeadStage(lead.id, 'lost', 'moni')).hotCold).toBe('hot');
+});
+
 it('setLeadProject keeps the first source and adds to projects of interest', async () => {
   await setLeadProject(lead.id, zetira.id, 'system', { channel: 'instagram', contentKind: 'reels', ref: 'ZTR-REELS' });
   const l = await setLeadProject(lead.id, ghp.id, 'moni', { channel: 'tiktok', contentKind: 'general', ref: 'x' });

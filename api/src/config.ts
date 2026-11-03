@@ -26,8 +26,10 @@ const envSchema = z.object({
   CHAKRA_WEBHOOK_SECRET: z.string().default(''),
   // Honoured only with NODE_ENV=development, for local webhook testing.
   SKIP_HMAC_IN_DEV: z.stringbool().default(false),
-  // Claude. An empty key makes every turn fail over to staff.
-  ANTHROPIC_API_KEY: z.string().default(''),
+  // Claude. An API key always wins; without one, a Claude account's OAuth token
+  // (`claude setup-token`) is used. With neither, every turn fails over to staff.
+  ANTHROPIC_API_KEY: z.string().trim().default(''),
+  CLAUDE_CODE_OAUTH_TOKEN: z.string().trim().default(''),
   MONI_MODEL: z.string().default('claude-opus-5-5'),
   MONI_EFFORT: z.enum(['low', 'medium', 'high']).default('medium'),
   // Proxies in front of the API (Caddy is one). >0 makes req.ip the real client; 0 trusts none.
