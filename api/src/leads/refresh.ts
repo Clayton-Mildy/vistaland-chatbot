@@ -47,7 +47,8 @@ export const SUMMARY_SCHEMA = {
 } as const;
 
 const SummaryResponse = z.object({
-  notes: z.string().max(NOTES_MAX),
+  // Clipped rather than rejected: one long note must not skip the whole refresh.
+  notes: z.string().transform((s) => s.trim().slice(0, NOTES_MAX)),
   facts: z.object({
     name: z.string().nullable(),
     budget_price: z.number().int().nullable(),
@@ -143,7 +144,7 @@ async function summarise(conversationId: string, leadId: string, deps: RefreshDe
   const parsed = SummaryResponse.parse(JSON.parse(block.text));
 
   await fillBlankFacts(leadId, toPatch(parsed.facts), ACTOR);
-  const summary = { notes: parsed.notes.trim(), refreshedAt: deps.now().toISOString() };
+  const summary = { notes: parsed.notes, refreshedAt: deps.now().toISOString() };
   await getDb().update(leads).set({ summary }).where(eq(leads.id, leadId));
 }
 

@@ -82,7 +82,8 @@ export function salesAlertRows(change: VisitChange, ctx: SalesAlertContext): New
         ctx.projectName,
         // Meta rejects an empty variable, and a lead with only a name has no summary.
         summaryLine(ctx.summary) || '-',
-        `${ctx.dashboardUrl}/visits/${visit.id}`,
+        // The visit page belongs to the new agent now; the one who lost it gets their schedule.
+        label === 'movedAway' ? `${ctx.dashboardUrl}/schedule` : `${ctx.dashboardUrl}/visits/${visit.id}`,
       ].map((p) => templateParam(p)),
       dueAt: ctx.now,
     });

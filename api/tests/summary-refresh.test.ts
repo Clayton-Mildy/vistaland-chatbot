@@ -135,11 +135,21 @@ it('treats refusals, truncation, invalid shapes and API errors as failures that 
   const fake = fakeAnthropic([
     reply([text(JSON.stringify({ notes: 'x', facts: { ...FACTS, name: 'Rina' } }))], 'refusal'),
     reply([text('{"notes": "terpotong')], 'max_tokens'),
-    reply([text(JSON.stringify({ notes: 'x'.repeat(401), facts: FACTS }))]),
+    reply([text(JSON.stringify({ notes: 'x', facts: { ...FACTS, purpose: 'beli' } }))]),
     new Error('503'),
   ]);
   expect(await refreshSummaries(deps(fake))).toEqual({ refreshed: 0, failed: 4 });
   expect((await getLead(s1.lead.id))!.name).toBeNull();
+});
+
+it('clips over-long notes to 400 characters and still fills blank facts', async () => {
+  const { lead } = await seed();
+  const fake = fakeAnthropic([answer(`  ${'x'.repeat(450)}  `, { name: 'Rina', bedrooms_wanted: 2 })]);
+  expect(await refreshSummaries(deps(fake))).toEqual({ refreshed: 1, failed: 0 });
+  const after = (await getLead(lead.id))!;
+  expect(after.summary).toEqual({ notes: 'x'.repeat(400), refreshedAt: NOW.toISOString() });
+  expect(after.name).toBe('Rina');
+  expect(after.bedroomsWanted).toBe(2);
 });
 
 it('the request uses low effort, a JSON schema format and the fallback beta, and no tool_choice or thinking', async () => {

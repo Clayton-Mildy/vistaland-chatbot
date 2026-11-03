@@ -5,8 +5,27 @@ import { requireApiSecret } from '../middleware/apiSecret.js';
 import { findStaffById } from '../repositories/staff.js';
 import { deleteSubscription, saveSubscription } from '../notify/push.js';
 
+/**
+ * The server POSTs to this endpoint, so it must be a public https host: no IP literals
+ * (WHATWG URL parsing already turns forms like https://2130706433/ into dotted IPv4) and no localhost.
+ */
+export function isAllowedPushEndpoint(raw: string): boolean {
+  let u: URL;
+  try {
+    u = new URL(raw);
+  } catch {
+    return false;
+  }
+  if (u.protocol !== 'https:') return false;
+  const host = u.hostname.toLowerCase().replace(/\.$/, '');
+  if (host === '' || host.startsWith('[')) return false; // IPv6 literal
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) return false; // IPv4 literal
+  if (host === 'localhost' || host.endsWith('.localhost')) return false;
+  return true;
+}
+
 const SubscriptionBody = z.object({
-  endpoint: z.url(),
+  endpoint: z.url().refine(isAllowedPushEndpoint),
   keys: z.object({ p256dh: z.string().min(1), auth: z.string().min(1) }),
 });
 const DeleteBody = z.object({ endpoint: z.string().min(1) });

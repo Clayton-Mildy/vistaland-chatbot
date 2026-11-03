@@ -39,7 +39,7 @@ export async function moveVisitAction(id: string, date: string, time: string): P
   return r.error ? { error: r.error } : { visitId: r.result?.data?.visit.id };
 }
 
-export async function reassignVisitAction(id: string, salesAgentId: string): Promise<{ error?: string; notice?: "sent" | "queued" | "none" }> {
+export async function reassignVisitAction(id: string, salesAgentId: string): Promise<{ error?: string; notice?: "sent" | "queued" | "none" | "failed" }> {
   const r = await run(id, true, (s) => reassignVisit(id, salesAgentId, s));
   return r.error ? { error: r.error } : { notice: r.result?.data?.notice };
 }

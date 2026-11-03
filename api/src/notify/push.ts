@@ -9,6 +9,8 @@ export type Notifier = { send(staffUserIds: string[], note: PushNote): Promise<v
 export type PushSubscriptionInput = { endpoint: string; keys: { p256dh: string; auth: string } };
 
 const TTL_SECONDS = 3600;
+// web-push sets no timeout unless given one, and alerts are awaited on Moni's hot paths.
+const PUSH_TIMEOUT_MS = 10_000;
 
 /** Saves a browser's subscription for a staff member; the same endpoint moves to whoever signed in last. */
 export async function saveSubscription(staffUserId: string, s: PushSubscriptionInput): Promise<void> {
@@ -52,7 +54,7 @@ export function createWebPushNotifier(cfg: {
       await Promise.all(
         subs.map(async (s) => {
           try {
-            await sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload, { TTL: TTL_SECONDS, vapidDetails });
+            await sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload, { TTL: TTL_SECONDS, vapidDetails, timeout: PUSH_TIMEOUT_MS });
           } catch (err) {
             const status = statusOf(err);
             // The browser dropped the subscription; it will never work again.

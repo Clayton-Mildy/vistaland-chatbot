@@ -15,6 +15,7 @@ const NOTICE_TEXT = {
   sent: "Konsumen sudah diberi tahu lewat WhatsApp.",
   queued: "Pemberitahuan ke konsumen masuk antrean pesan template.",
   none: "",
+  failed: "Pemberitahuan ke konsumen gagal; kabari manual.",
 } as const;
 
 export function VisitActions({

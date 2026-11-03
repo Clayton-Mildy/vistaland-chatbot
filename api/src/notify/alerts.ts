@@ -60,6 +60,7 @@ export function createAlerts(deps: { notifier: Notifier | null; dashboardUrl: st
   const { notifier, dashboardUrl } = deps;
   const leadUrl = (id: string) => `${dashboardUrl}/leads/${id}`;
   const visitUrl = (id: string) => `${dashboardUrl}/visits/${id}`;
+  const scheduleUrl = `${dashboardUrl}/schedule`;
 
   async function guarded(what: string, fn: (n: Notifier) => Promise<void>): Promise<void> {
     if (!notifier) return;
@@ -105,14 +106,15 @@ export function createAlerts(deps: { notifier: Notifier | null; dashboardUrl: st
       guarded('visitChanged', async (n) => {
         const { kind, visit, previous } = change;
         if (visit.isTest || kind === 'outcome') return;
-        const events: { agentId: string; label: string; visit: Visit }[] = [];
+        const events: { agentId: string; label: string; visit: Visit; url: string }[] = [];
         const movedAway = previous && previous.salesAgentId !== visit.salesAgentId && (kind === 'rescheduled' || kind === 'reassigned');
         if (movedAway) {
-          events.push({ agentId: previous.salesAgentId, label: SALES_ALERT_LABEL.movedAway, visit: previous });
-          events.push({ agentId: visit.salesAgentId, label: SALES_ALERT_LABEL.booked, visit });
-        } else if (kind === 'booked') events.push({ agentId: visit.salesAgentId, label: SALES_ALERT_LABEL.booked, visit });
-        else if (kind === 'rescheduled') events.push({ agentId: visit.salesAgentId, label: SALES_ALERT_LABEL.rescheduled, visit });
-        else if (kind === 'cancelled') events.push({ agentId: visit.salesAgentId, label: SALES_ALERT_LABEL.cancelled, visit });
+          // The visit is no longer theirs, so its page would be a 404: point them at their schedule.
+          events.push({ agentId: previous.salesAgentId, label: SALES_ALERT_LABEL.movedAway, visit: previous, url: scheduleUrl });
+          events.push({ agentId: visit.salesAgentId, label: SALES_ALERT_LABEL.booked, visit, url: visitUrl(visit.id) });
+        } else if (kind === 'booked') events.push({ agentId: visit.salesAgentId, label: SALES_ALERT_LABEL.booked, visit, url: visitUrl(visit.id) });
+        else if (kind === 'rescheduled') events.push({ agentId: visit.salesAgentId, label: SALES_ALERT_LABEL.rescheduled, visit, url: visitUrl(visit.id) });
+        else if (kind === 'cancelled') events.push({ agentId: visit.salesAgentId, label: SALES_ALERT_LABEL.cancelled, visit, url: visitUrl(visit.id) });
         if (events.length === 0) return;
 
         const lead = await leadInfo(visit.leadId);
@@ -122,7 +124,7 @@ export function createAlerts(deps: { notifier: Notifier | null; dashboardUrl: st
           await push(n, to, {
             title: e.label,
             body: `${lead?.who ?? 'Calon pembeli'} · ${project?.name ?? 'Proyek'} · ${wibLabel(e.visit.startsAt)}`,
-            url: visitUrl(visit.id),
+            url: e.url,
           });
         }
       }),

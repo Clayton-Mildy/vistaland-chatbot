@@ -64,6 +64,17 @@ it('sends one notification per subscription of each active staff user', async ()
   expect(options.TTL).toBe(3600);
 });
 
+it('bounds every push request with a timeout', async () => {
+  const a = await staff('a@vista.id');
+  await saveSubscription(a.id, { endpoint: 'https://push.example/a1', keys });
+  const sendNotification = vi.fn(async () => ({ statusCode: 201, body: '', headers: {} }));
+  const notifier = createWebPushNotifier({ publicKey: 'pub', privateKey: 'priv', subject: 'mailto:x@y.id', sendNotification: sendNotification as never });
+  await notifier.send([a.id], { title: 't', body: 'b', url: URL_BASE });
+  const options = (sendNotification.mock.calls as unknown as [unknown, string, { timeout?: number; vapidDetails?: unknown }][])[0]![2];
+  expect(options.timeout).toBe(10_000);
+  expect(options.vapidDetails).toEqual({ subject: 'mailto:x@y.id', publicKey: 'pub', privateKey: 'priv' });
+});
+
 it('a 410 deletes the subscription', async () => {
   const a = await staff('a@vista.id');
   await saveSubscription(a.id, { endpoint: 'https://push.example/gone', keys });
@@ -221,6 +232,8 @@ it('a visit that moves to another agent tells both; an agent without an account 
     { to: [s.repA.id], title: SALES_ALERT_LABEL.movedAway },
     { to: [s.repB.id], title: SALES_ALERT_LABEL.booked },
   ]);
+  // The visit page is the new agent's now: the old one is sent to their schedule.
+  expect(s.notifier.sent.map((x) => x.note.url)).toEqual([`${URL_BASE}/schedule`, `${URL_BASE}/visits/11111111-1111-4111-8111-111111111111`]);
   s.notifier.sent.length = 0;
   await s.alerts.visitChanged({ kind: 'rescheduled', visit: s.mk(s.agentC.id), previous: s.mk(s.agentA.id) });
   expect(s.titles()).toEqual([{ to: [s.repA.id], title: SALES_ALERT_LABEL.movedAway }]);
@@ -253,6 +266,31 @@ it('POST /push/subscriptions saves for the staff member and DELETE removes', asy
   const del = await app.inject({ method: 'DELETE', url: '/api/v1/push/subscriptions', headers: auth, payload: { endpoint: payload.endpoint } });
   expect(del.statusCode).toBe(200);
   expect(await subs()).toHaveLength(0);
+});
+
+it('POST /push/subscriptions refuses a non-https, IP-literal or localhost endpoint', async () => {
+  const app = buildApp();
+  const a = await staff('a@vista.id');
+  const url = '/api/v1/push/subscriptions';
+  const headers = { ...auth, 'x-staff-id': a.id };
+  for (const endpoint of [
+    'http://push.example/x',
+    'ftp://push.example/x',
+    'https://127.0.0.1/x',
+    'https://10.0.0.5:8443/x',
+    'https://169.254.169.254/latest',
+    'https://[::1]/x',
+    'https://localhost/x',
+    'https://push.localhost/x',
+    'https://2130706433/x',
+  ]) {
+    const res = await app.inject({ method: 'POST', url, headers, payload: { endpoint, keys } });
+    expect(res.statusCode, endpoint).toBe(400);
+    expect(res.json()).toEqual({ data: null, error: 'VALIDATION_ERROR' });
+  }
+  expect(await subs()).toHaveLength(0);
+  const ok = await app.inject({ method: 'POST', url, headers, payload: { endpoint: 'https://fcm.googleapis.com/fcm/send/abc', keys } });
+  expect(ok.statusCode).toBe(200);
 });
 
 it('POST /push/subscriptions without a staff id is 401', async () => {

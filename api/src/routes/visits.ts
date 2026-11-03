@@ -184,7 +184,17 @@ export function visitRoutes(deps: { chakra?: ChakraClient; alerts: Alerts | null
       if (!p.success || !body.success) return reply.code(400).send(bad);
       const now = clock();
       const result = await reassignVisit({ visitId: p.data.id, salesAgentId: body.data.salesAgentId, actor: actorOf(scope) }, now);
-      return finish(result, reply, async (ok) => ({ visit: ok.visit, notice: await noticeReassignment(ok.visit, scope, req, now) }));
+      return finish(result, reply, async (ok) => {
+        // The reassignment has committed: a failed notice must not turn it into a 500 the admin retries.
+        let notice: Awaited<ReturnType<typeof noticeReassignment>> | 'failed';
+        try {
+          notice = await noticeReassignment(ok.visit, scope, req, now);
+        } catch (err) {
+          req.log.error({ err, visitId: ok.visit.id }, 'reassign notice failed after the reassignment committed');
+          notice = 'failed';
+        }
+        return { visit: ok.visit, notice };
+      });
     });
 
     app.post('/api/v1/visits/:id/cancel', opts, async (req, reply) => {

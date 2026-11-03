@@ -29,7 +29,7 @@ export type VisitFilters = { from: string; to: string; projectId?: string; sales
 
 const staff = (staffId: string): HeadersInit => ({ "X-Staff-Id": staffId });
 const post = (path: string, body: unknown, staffId: string) =>
-  apiFetch<{ visit: VisitRow; notice?: "sent" | "queued" | "none" }>(path, { method: "POST", body: JSON.stringify(body), headers: staff(staffId) });
+  apiFetch<{ visit: VisitRow; notice?: "sent" | "queued" | "none" | "failed" }>(path, { method: "POST", body: JSON.stringify(body), headers: staff(staffId) });
 
 /** Visits starting in the inclusive WIB date range; the outbound counts come back for admins only. */
 export async function listVisits(f: VisitFilters, staffId: string): Promise<{ visits: VisitRow[]; outbound: OutboundMeta | null }> {

@@ -4,7 +4,7 @@ import { truncate } from './helpers/db.js';
 import { seedProjects } from './helpers/vles.js';
 import { buildApp } from '../src/app.js';
 import { getDb } from '../src/db/client.js';
-import { contacts, projects, scheduledMessages, visits } from '../src/db/schema/index.js';
+import { contacts, conversations, projects, scheduledMessages, visits } from '../src/db/schema/index.js';
 import { listProjects } from '../src/repositories/projects.js';
 import { createStaff } from '../src/repositories/staff.js';
 import { createAgent, setAvailability, type SalesAgent } from '../src/scheduling/roster.js';
@@ -247,6 +247,23 @@ it('a failed free-text notice falls back to the template', async () => {
   const failed = await getDb().select().from(messages).where(eq(messages.status, 'failed'));
   expect(failed).toHaveLength(1);
   expect(await getDb().select().from(scheduledMessages).where(eq(scheduledMessages.kind, 'reassign_notice'))).toHaveLength(1);
+});
+
+it('a notice that fails after the reassignment committed is still 200, with notice "failed"', async () => {
+  const v = await makeVisit(a.id);
+  // The chat row disappears mid-send, so recording the failed message (and the notice) throws.
+  const broken: ChakraClient = {
+    ...chakra,
+    sendText: async () => {
+      await getDb().delete(conversations).where(eq(conversations.id, v.convId));
+      throw new Error('boom');
+    },
+  };
+  const res = await buildApp({ chakra: broken, alerts, now: () => now }).inject({ method: 'POST', url: `/api/v1/visits/${v.visitId}/reassign`, headers: admin, payload: { salesAgentId: b.id } });
+  expect(res.statusCode).toBe(200);
+  expect(res.json().data).toMatchObject({ notice: 'failed', visit: { id: v.visitId, salesAgentId: b.id } });
+  expect((await getVisitView(v.visitId))!.salesAgentId).toBe(b.id);
+  expect(changes.map((c) => c.kind)).toEqual(['reassigned']);
 });
 
 it('reassigning to a busy agent is 409 AGENT_NOT_FREE', async () => {

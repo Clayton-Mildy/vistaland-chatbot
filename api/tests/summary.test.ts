@@ -174,6 +174,8 @@ it('a reschedule to another agent alerts both', () => {
   expect(rows.map((r) => r.params[1])).toEqual([SALES_ALERT_LABEL.movedAway, SALES_ALERT_LABEL.booked]);
   expect(rows[0]!.toPhone).not.toBe(rows[1]!.toPhone);
   expect(rows.map((r) => r.dedupeKey)).toEqual(['sales_alert:v2:movedAway:a1', 'sales_alert:v2:booked:a2']);
+  // The visit page is the new agent's now: the old one is sent to their schedule.
+  expect(rows.map((r) => r.params[6])).toEqual(['https://dash.vista.id/schedule', 'https://dash.vista.id/visits/v2']);
 });
 
 it('a reschedule to another agent shows the old agent the slot they lost', () => {
