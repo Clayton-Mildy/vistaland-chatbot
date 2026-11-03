@@ -21,6 +21,9 @@ export function webhookRoutes(deps: WebhookDeps) {
       }
     });
 
+    // No per-IP rate limit here, on purpose: ChakraHQ posts every customer's message from a few
+    // addresses, so a per-IP limit would drop real messages in a campaign burst. The HMAC check
+    // in the handler already drops forged requests cheaply.
     app.get('/webhook', async (_req, reply) => reply.type('text/plain').send('OK'));
 
     app.post('/webhook', async (req, reply) => {

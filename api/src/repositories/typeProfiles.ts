@@ -1,6 +1,7 @@
 import { eq, sql } from 'drizzle-orm';
 import { getDb } from '../db/client.js';
 import { typeProfiles } from '../db/schema/index.js';
+import { intArray } from '../knowledge/units.js';
 import type { Project } from './projects.js';
 
 export type TypeProfile = typeof typeProfiles.$inferSelect;
@@ -44,7 +45,7 @@ export async function listProjectTypes(project: Project): Promise<ProjectType[]>
         count(*)::int as total, (count(*) filter (where is_available_for_sale))::int as available
       from vles_units
       where project_id = ${project.vlesProjectId}
-        and area_id = any(${sql.raw(`'{${project.vlesAreaIds.join(',')}}'::int[]`)})
+        and area_id = any(${intArray(project.vlesAreaIds)})
         and not deleted
       group by house_type_id
       order by max(house_type_name)

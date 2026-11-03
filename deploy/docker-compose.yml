@@ -25,6 +25,8 @@ services:
       PORT: "50060"
       MIGRATIONS_DIR: ./migrations
       MEDIA_DIR: /app/media
+      # Caddy is the only hop in front of the API, so req.ip is the real client.
+      TRUST_PROXY_HOPS: "1"
       PUBLIC_BASE_URL: https://${DOMAIN:?set DOMAIN}
       DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/vistaland
       API_SECRET_KEY: ${API_SECRET_KEY:?set API_SECRET_KEY}

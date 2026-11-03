@@ -3,6 +3,7 @@ import { truncate } from './helpers/db.js';
 import { seedProjects, seedUnits, unit } from './helpers/vles.js';
 import { buildApp } from '../src/app.js';
 import { listProjects } from '../src/repositories/projects.js';
+import { listProjectTypes } from '../src/repositories/typeProfiles.js';
 import { createMaterial, activeMaterials } from '../src/repositories/materials.js';
 import { upsertPage } from '../src/vles/repository.js';
 import { fixture } from './helpers/vles.js';
@@ -92,4 +93,16 @@ it('normalises and validates channel tags', async () => {
   expect(bad.statusCode).toBe(400);
   await app.inject({ method: 'DELETE', url: '/api/v1/channel-tags/ZTR-REELS', headers: auth });
   expect((await app.inject({ method: 'GET', url: '/api/v1/channel-tags', headers: auth })).json().data).toEqual([]);
+});
+
+it('listProjectTypes counts only the project\'s areas', async () => {
+  const p = await zetira();
+  await seedUnits([
+    unit({ id: 1, project_id: 5, area_id: 37, house_type_id: 500, house_type_name: 'ZETIRA BELVIA', is_available_for_sale: true, selling_price: 1 }),
+    unit({ id: 2, project_id: 5, area_id: 37, house_type_id: 500, house_type_name: 'ZETIRA BELVIA', is_available_for_sale: false, selling_price: 1 }),
+    unit({ id: 3, project_id: 5, area_id: 5, house_type_id: 900, house_type_name: 'OTHER AREA', is_available_for_sale: true, selling_price: 1 }),
+  ]);
+  expect(await listProjectTypes(p)).toEqual([
+    expect.objectContaining({ houseTypeId: 500, totalUnits: 2, availableUnits: 1, profile: null }),
+  ]);
 });

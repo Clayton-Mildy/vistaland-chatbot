@@ -72,6 +72,11 @@ export async function runAgentTurn(
       const category = (res as { stop_details?: { category?: string | null } | null }).stop_details?.category ?? 'unknown';
       return { kind: 'failed', reason: 'REFUSAL', detail: String(category), trace };
     }
+    if (res.stop_reason === 'max_tokens') {
+      // The reply was cut off; the loop carries on (the failsafe or a retry asks again).
+      console.warn('[agent] model response hit max_tokens');
+      trace.push({ tool: '(model)', input: null, isError: true, output: 'max_tokens' });
+    }
     messages.push({ role: 'assistant', content: res.content as Anthropic.Beta.BetaContentBlockParam[] });
 
     const uses = res.content.filter((b): b is Anthropic.Beta.BetaToolUseBlock => b.type === 'tool_use');

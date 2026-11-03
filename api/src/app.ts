@@ -23,8 +23,11 @@ export type AppDeps = {
 };
 
 export function buildApp(deps: AppDeps = {}): FastifyInstance {
+  const proxyHops = getConfig().TRUST_PROXY_HOPS;
   const app = Fastify({
     logger: { level: getConfig().LOG_LEVEL },
+    // Trust that many proxies in front of us, so req.ip is the real client.
+    trustProxy: proxyHops > 0 ? (_address: string, hop: number) => hop < proxyHops : false,
   });
 
   app.get('/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }));

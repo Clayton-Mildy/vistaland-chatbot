@@ -1,4 +1,4 @@
-import { it, expect, beforeEach } from 'vitest';
+import { it, expect, beforeEach, vi } from 'vitest';
 import { truncate } from './helpers/db.js';
 import { seedProjects, json, fakeFetch } from './helpers/vles.js';
 import { reply, tool, fakeAnthropic } from './helpers/agent.js';
@@ -55,6 +55,14 @@ it('ignores outbound messages Moni sent', async () => {
 it('ignores a Moni message whose send we recorded as failed but WhatsApp delivered', async () => {
   await insertOutbound(convId, { sender: 'moni', kind: 'text', body: 'Halo Kak dari Moni', waMessageId: null, status: 'failed' });
   expect(await syncStaffReplies(convId, { client: chakraWith([out('wamid.late', 'Halo Kak dari Moni', 5_000)]), now: () => new Date() })).toBe(false);
+});
+
+it('a slow history check logs a line', async () => {
+  const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+  const never = chakraWith(() => new Promise(() => undefined));
+  expect(await syncStaffReplies(convId, { client: never, now: () => new Date(), timeoutMs: 5 })).toBe(false);
+  expect(log).toHaveBeenCalledWith(`[staffSync] history check timed out after 5 ms for ${convId}`);
+  log.mockRestore();
 });
 
 it('gives up quietly when ChakraHQ is slow or failing', async () => {

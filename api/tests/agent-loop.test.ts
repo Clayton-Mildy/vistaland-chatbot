@@ -1,4 +1,4 @@
-import { it, expect, beforeEach } from 'vitest';
+import { it, expect, beforeEach, vi } from 'vitest';
 import { truncate } from './helpers/db.js';
 import { seedProjects, seedUnits, unit } from './helpers/vles.js';
 import { reply, tool, text, fakeAnthropic } from './helpers/agent.js';
@@ -82,6 +82,15 @@ it('rewrites once on a failed reply check, then fails', async () => {
   const rejection = (fixed.params[1]!['messages'] as { role: string; content: { type: string; is_error?: boolean; content?: string }[] }[]).at(-1)!;
   expect(rejection.content[0]).toMatchObject({ type: 'tool_result', is_error: true });
   expect(rejection.content[0]!.content).toContain('Rp450 jt');
+});
+
+it('a max_tokens stop is marked in the trace', async () => {
+  const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+  const r = await turn(fakeAnthropic([reply([text('Halo Kak, harga')], 'max_tokens'), reply([respond('Halo Kak')])]));
+  expect(r).toMatchObject({ kind: 'reply', message: 'Halo Kak' });
+  expect(r.trace).toContainEqual({ tool: '(model)', input: null, isError: true, output: 'max_tokens' });
+  expect(warn).toHaveBeenCalledTimes(1);
+  warn.mockRestore();
 });
 
 it('returns no_reply when the model chooses not to answer', async () => {

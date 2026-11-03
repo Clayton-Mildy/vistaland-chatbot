@@ -17,6 +17,7 @@ export async function syncStaffReplies(
   conversationId: string,
   deps: { client: ChakraClient; now: () => Date; timeoutMs?: number }
 ): Promise<boolean> {
+  const timeoutMs = deps.timeoutMs ?? 5000;
   try {
     const conv = await getConversation(conversationId);
     const contact = conv ? await getContact(conv.contactId) : null;
@@ -27,9 +28,12 @@ export async function syncStaffReplies(
         const chatId = await deps.client.findChatId(contact.waPhone);
         return chatId ? deps.client.listChatMessages(chatId, HISTORY) : [];
       })(),
-      deps.timeoutMs ?? 5000
+      timeoutMs
     );
-    if (!history) return false;
+    if (!history) {
+      console.log(`[staffSync] history check timed out after ${timeoutMs} ms for ${conversationId}`);
+      return false;
+    }
 
     const outbound = history.filter((m) => m.direction !== 'INBOUND' && m.externalId);
     if (outbound.length === 0) return false;

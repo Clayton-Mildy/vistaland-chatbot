@@ -5,6 +5,8 @@ import { multipart, PNG_1PX } from './helpers/http.js';
 
 const auth = { authorization: 'Bearer test-secret-test-secret-test-secret-00' };
 const MEDIA_DIR = process.env['MEDIA_DIR']!;
+// Read once, when the first app is built.
+process.env['MEDIA_RATE_LIMIT_PER_MIN'] = '2';
 
 beforeEach(() => {
   rmSync(MEDIA_DIR, { recursive: true, force: true });
@@ -40,4 +42,14 @@ it('rejects webp and files over 16 MB', async () => {
   expect(r2.statusCode).toBe(400);
   expect(r2.json().error).toBe('TOO_LARGE');
   expect(readdirSync(MEDIA_DIR)).toEqual([]);
+});
+
+it('media is rate limited per client', async () => {
+  const app = buildApp();
+  const { payload, headers } = multipart('file', 'flyer.png', 'image/png', PNG_1PX);
+  const up = await app.inject({ method: 'POST', url: '/api/v1/media', headers: { ...auth, ...headers }, payload });
+  const path = new URL(up.json().data.url).pathname;
+  const codes: number[] = [];
+  for (let i = 0; i < 3; i++) codes.push((await app.inject({ method: 'GET', url: path })).statusCode);
+  expect(codes).toEqual([200, 200, 429]);
 });

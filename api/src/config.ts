@@ -30,6 +30,10 @@ const envSchema = z.object({
   ANTHROPIC_API_KEY: z.string().default(''),
   MONI_MODEL: z.string().default('claude-opus-5-5'),
   MONI_EFFORT: z.enum(['low', 'medium', 'high']).default('medium'),
+  // Proxies in front of the API (Caddy is one). >0 makes req.ip the real client; 0 trusts none.
+  TRUST_PROXY_HOPS: z.coerce.number().int().min(0).default(0),
+  // Per client IP, for the public /media files. 0 turns the limit off.
+  MEDIA_RATE_LIMIT_PER_MIN: z.coerce.number().int().min(0).default(600),
   // Wait for the customer to pause: this long after the last message, at most TYPING_MAX_WAIT_MS
   // after the first.
   TYPING_DEBOUNCE_MS: z.coerce.number().int().min(0).default(8000),
