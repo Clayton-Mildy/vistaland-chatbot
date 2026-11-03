@@ -2,6 +2,7 @@ import { and, asc, desc, eq, gt, inArray, max, sql } from 'drizzle-orm';
 import { getDb } from '../db/client.js';
 import { contacts, conversations, leadEvents, leads, messages, type LeadEventKind, type LeadStage } from '../db/schema/index.js';
 import { canMoniSetStage } from './stages.js';
+import { CUSTOMER_KINDS, cancelPending } from '../outbound/repository.js';
 
 export type Contact = typeof contacts.$inferSelect;
 export type Conversation = typeof conversations.$inferSelect;
@@ -299,6 +300,7 @@ export async function optOut(contactId: string, leadId: string, actor: string): 
   await getDb().update(contacts).set({ optedOutAt: new Date() }).where(eq(contacts.id, contactId));
   await setLeadStage(leadId, 'opted_out', actor, { force: true });
   await recordEvent(leadId, 'opt_out', {}, actor);
+  await cancelPending(getDb(), { leadId, kinds: CUSTOMER_KINDS });
 }
 
 // ─── takeover ───────────────────────────────────────────────────────────────

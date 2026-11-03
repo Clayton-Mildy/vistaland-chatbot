@@ -10,6 +10,7 @@ import { runTurn } from './router/turn.js';
 import { handleInbound } from './router/inbound.js';
 import { conversationsAwaitingReply, getConversation } from './leads/repository.js';
 import { syncStaffReplies } from './chakra/staffSync.js';
+import { createOutboundPoller } from './outbound/poller.js';
 
 const config = getConfig();
 const vles = getVlesClient();
@@ -58,3 +59,9 @@ if (waiting.length) console.log(`[moni] re-queued ${waiting.length} unanswered c
 
 if (vles) startVlesSync(vles, config.VLES_SYNC_INTERVAL_MS);
 else console.log('[vles] VLES_API_KEY is empty - sync is off');
+
+if (config.OUTBOUND_POLL_MS > 0) {
+  // Without a configured token every row is held rather than sent into a failing client.
+  const poller = createOutboundPoller({ chakra: config.CHAKRA_ACCESS_TOKEN ? chakra : null, now: () => new Date() });
+  poller.start(config.OUTBOUND_POLL_MS);
+} else console.log('[outbound] OUTBOUND_POLL_MS is 0 - queued WhatsApp templates are not sent');

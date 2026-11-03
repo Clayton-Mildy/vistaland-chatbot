@@ -14,6 +14,7 @@ const chakraCalls: string[] = [];
 const chakra: ChakraClient = {
   sendText: async (_p, _to, body) => (chakraCalls.push(body), { waMessageId: 'x' }),
   sendMedia: async () => (chakraCalls.push('media'), { waMessageId: 'x' }),
+  sendTemplate: async () => ({ waMessageId: null }),
   findChatId: async () => null,
   listChatMessages: async () => [],
 };

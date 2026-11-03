@@ -33,6 +33,7 @@ beforeEach(async () => {
 const chakraWith = (messages: ChakraChatMessage[] | (() => Promise<ChakraChatMessage[]>)): ChakraClient => ({
   sendText: async () => ({ waMessageId: null }),
   sendMedia: async () => ({ waMessageId: null }),
+  sendTemplate: async () => ({ waMessageId: null }),
   findChatId: async (wa) => (wa === PHONE ? 'chat-1' : null),
   listChatMessages: async () => (typeof messages === 'function' ? messages() : messages),
 });

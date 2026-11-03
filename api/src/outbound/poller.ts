@@ -1,0 +1,99 @@
+import { eq } from 'drizzle-orm';
+import { getDb } from '../db/client.js';
+import { contacts, conversations, leads } from '../db/schema/index.js';
+import { getAppSettings, type AppSettings, type TemplateRef } from '../settings/appSettings.js';
+import type { ChakraClient } from '../chakra/client.js';
+import { CUSTOMER_KINDS, dueRows, markAttemptFailed, markCancelled, markSent, type OutboundRow } from './repository.js';
+
+const PASS_LIMIT = 50;
+
+export type OutboundPollerDeps = {
+  chakra: ChakraClient | null;
+  now: () => Date;
+  // Called once, when a row has used its last attempt.
+  onFailed?: (row: OutboundRow) => Promise<void>;
+};
+
+export type OutboundPass = { sent: number; held: number; failed: number };
+
+// Customer-facing kinds other than the reassignment notice have no template until Milestone 4.
+function templateFor(kind: OutboundRow['kind'], s: AppSettings): TemplateRef | null {
+  if (kind === 'sales_alert') return s.salesAlertTemplate;
+  if (kind === 'reassign_notice') return s.reassignNoticeTemplate;
+  return null;
+}
+
+async function leadContext(leadId: string | null): Promise<{ optedOut: boolean; phoneNumberId: string | null }> {
+  if (!leadId) return { optedOut: false, phoneNumberId: null };
+  const [r] = await getDb()
+    .select({ optedOutAt: contacts.optedOutAt, phoneNumberId: conversations.waPhoneNumberId })
+    .from(leads)
+    .innerJoin(contacts, eq(contacts.id, leads.contactId))
+    .leftJoin(conversations, eq(conversations.contactId, contacts.id))
+    .where(eq(leads.id, leadId));
+  return { optedOut: r?.optedOutAt != null, phoneNumberId: r?.phoneNumberId ?? null };
+}
+
+export function createOutboundPoller(deps: OutboundPollerDeps): {
+  runOnce(): Promise<OutboundPass>;
+  start(intervalMs: number): () => void;
+} {
+  const poller = {
+    async runOnce(): Promise<OutboundPass> {
+      const now = deps.now();
+      const settings = await getAppSettings();
+      const pass: OutboundPass = { sent: 0, held: 0, failed: 0 };
+      for (const row of await dueRows(now, PASS_LIMIT)) {
+        const ctx = await leadContext(row.leadId);
+        if (CUSTOMER_KINDS.includes(row.kind) && ctx.optedOut) {
+          await markCancelled(row.id);
+          continue;
+        }
+        const template = templateFor(row.kind, settings);
+        const phoneNumberId = settings.chakraPhoneNumberId || ctx.phoneNumberId;
+        // Held rows stay pending and go out on the first pass after the setup is complete.
+        if (!template?.name || !phoneNumberId || !deps.chakra) {
+          pass.held++;
+          continue;
+        }
+        try {
+          const res = await deps.chakra.sendTemplate(phoneNumberId, row.toPhone, {
+            name: template.name,
+            language: template.language,
+            params: row.params,
+          });
+          await markSent(row.id, res.waMessageId, now);
+          pass.sent++;
+        } catch (err) {
+          const updated = await markAttemptFailed(row.id, err instanceof Error ? err.message : String(err), now);
+          if (updated.status === 'failed') {
+            pass.failed++;
+            await deps.onFailed?.(updated).catch((e) => console.error('[outbound] onFailed crashed:', e instanceof Error ? e.message : e));
+          }
+        }
+      }
+      return pass;
+    },
+
+    /** Runs a pass now, then one every intervalMs; a pass still running skips the tick. Returns a stop function. */
+    start(intervalMs: number): () => void {
+      let running = false;
+      const tick = async () => {
+        if (running) return;
+        running = true;
+        try {
+          const r = await poller.runOnce();
+          if (r.sent || r.failed) console.log(`[outbound] sent ${r.sent}, failed ${r.failed}, held ${r.held}`);
+        } catch (err) {
+          console.error('[outbound] pass crashed:', err instanceof Error ? err.message : err);
+        } finally {
+          running = false;
+        }
+      };
+      void tick();
+      const timer = setInterval(() => void tick(), intervalMs);
+      return () => clearInterval(timer);
+    },
+  };
+  return poller;
+}

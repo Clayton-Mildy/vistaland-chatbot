@@ -16,8 +16,13 @@ export type ChakraChatMessage = {
   createdAt?: number | null;
 };
 
+/** An approved WhatsApp template with its body variables, in order. */
+export type ChakraTemplate = { name: string; language: string; params: string[] };
+
 export type ChakraClient = {
   sendText(phoneNumberId: string, to: string, body: string): Promise<ChakraSend>;
+  // Templates are the only thing WhatsApp lets us send outside the customer's 24-hour window.
+  sendTemplate(phoneNumberId: string, to: string, t: ChakraTemplate): Promise<ChakraSend>;
   sendMedia(phoneNumberId: string, to: string, m: ChakraMedia): Promise<ChakraSend>;
   // Chat history. The webhook never carries replies staff type in ChakraHQ's inbox; these do.
   findChatId(waPhone: string): Promise<string | null>;
@@ -109,6 +114,21 @@ export function createChakraClient(cfg: {
     listChatMessages: (chatId, limit) => list<ChakraChatMessage>(`/v1/ext/chat/${chatId}/message`, { limit, page: 1 }),
     sendText: (phoneNumberId, to, body) =>
       post(phoneNumberId, { messaging_product: 'whatsapp', to, type: 'text', text: { body } }),
+    // Unconfirmed: whether ChakraHQ passes template messages through unchanged. If the first live
+    // send fails, compare this payload with vinindo-app's template sender.
+    sendTemplate: (phoneNumberId, to, t) =>
+      post(phoneNumberId, {
+        messaging_product: 'whatsapp',
+        to,
+        type: 'template',
+        template: {
+          name: t.name,
+          language: { code: t.language },
+          ...(t.params.length
+            ? { components: [{ type: 'body', parameters: t.params.map((text) => ({ type: 'text', text })) }] }
+            : {}),
+        },
+      }),
     sendMedia: (phoneNumberId, to, m) => {
       // Documents carry a filename and no caption.
       const media =

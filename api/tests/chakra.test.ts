@@ -112,6 +112,24 @@ it('sendText posts the Meta payload and returns the wamid', async () => {
   expect(JSON.parse(calls[0]!.body!)).toEqual({ messaging_product: 'whatsapp', to: '6281234567890', type: 'text', text: { body: 'Halo Kak' } });
 });
 
+it('sendTemplate posts a body template', async () => {
+  const { c, calls } = client([json(200, { _data: { whatsappMessageId: 'wamid.T' } }), json(200, {})]);
+  expect(await c.sendTemplate('PNID-1', '6281234567890', { name: 'sales_alert', language: 'id', params: ['Rina', 'Zetira'] })).toEqual({ waMessageId: 'wamid.T' });
+  expect(calls[0]!.url).toBe('https://api.chakra.test/v1/ext/plugin/whatsapp/PLG/api/v22.0/PNID-1/messages');
+  expect(JSON.parse(calls[0]!.body!)).toEqual({
+    messaging_product: 'whatsapp',
+    to: '6281234567890',
+    type: 'template',
+    template: {
+      name: 'sales_alert',
+      language: { code: 'id' },
+      components: [{ type: 'body', parameters: [{ type: 'text', text: 'Rina' }, { type: 'text', text: 'Zetira' }] }],
+    },
+  });
+  await c.sendTemplate('PNID-1', '628', { name: 'plain', language: 'id', params: [] });
+  expect(JSON.parse(calls[1]!.body!).template).toEqual({ name: 'plain', language: { code: 'id' } });
+});
+
 it('sendMedia sends a document with filename and no caption; throws ChakraError on 400', async () => {
   const { c, calls } = client([json(200, {}), json(400, { error: 'bad' })]);
   expect(await c.sendMedia('PNID-1', '628', { kind: 'document', link: 'https://x/brosur.pdf', filename: 'brosur.pdf', caption: 'ignored' })).toEqual({ waMessageId: null });

@@ -24,6 +24,7 @@ const sentTo: { to: string; body: string; pnid: string }[] = [];
 const chakra: ChakraClient = {
   sendText: async (pnid, to, body) => (sentTo.push({ to, body, pnid }), { waMessageId: `wamid.staff${sentTo.length}` }),
   sendMedia: async () => ({ waMessageId: null }),
+  sendTemplate: async () => ({ waMessageId: null }),
   findChatId: async () => null,
   listChatMessages: async () => [],
 };
