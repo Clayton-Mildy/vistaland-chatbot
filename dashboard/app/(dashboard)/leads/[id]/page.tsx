@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getLeadDetail, VISIT_STATUS_LABEL, type LeadEvent } from "@/lib/api/leads";
 import { sessionUser } from "@/lib/session";
 import { formatRupiah, formatWib } from "@/lib/format";
+import { SummaryCard } from "@/components/SummaryCard";
 import { LeadControls } from "./LeadControls";
 
 export const dynamic = "force-dynamic";
@@ -32,16 +33,6 @@ function eventText(e: LeadEvent): string {
 }
 
 const actorText = (a: string) => (a === "moni" ? "Moni" : a === "system" ? "Sistem" : a.startsWith("staff") ? "Staf" : a);
-
-function SummaryRow({ label, value }: { label: string; value: string | null }) {
-  return (
-    <p>
-      <span className="text-xs text-slate-500">{label}</span>
-      <br />
-      {value ?? "—"}
-    </p>
-  );
-}
 
 export default async function LeadPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -82,21 +73,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
           </div>
         </section>
         <aside className="space-y-4">
-          {d.summary && (
-            <section className="space-y-1 rounded-lg bg-white p-4 text-sm shadow-sm">
-              <h2 className="font-semibold">Ringkasan untuk sales</h2>
-              <SummaryRow label="Sumber" value={d.summary.source} />
-              <SummaryRow label="Domisili" value={d.summary.location} />
-              <SummaryRow label="Tujuan" value={d.summary.purpose} />
-              <SummaryRow label="Kebutuhan" value={d.summary.need} />
-              <SummaryRow label="Budget" value={d.summary.budget} />
-              <SummaryRow label="Keraguan" value={d.summary.concerns.join("; ") || null} />
-              <SummaryRow label="Materi" value={d.summary.materials.join(", ") || null} />
-              <SummaryRow label="Simulasi" value={d.summary.simulations.join("; ") || null} />
-              <SummaryRow label="Kunjungan" value={d.summary.visit ? `${d.summary.visit.label} · ${d.summary.visit.salesName} · ${VISIT_STATUS_LABEL[d.summary.visit.status] ?? d.summary.visit.status}` : null} />
-              <SummaryRow label="Catatan" value={d.summary.notes} />
-            </section>
-          )}
+          {d.summary && <SummaryCard summary={d.summary} />}
           <section className="rounded-lg bg-white p-4 shadow-sm">
             <h2 className="mb-2 font-semibold">Kunjungan</h2>
             <ul className="space-y-1.5 text-sm">

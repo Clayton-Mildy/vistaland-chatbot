@@ -15,6 +15,8 @@ import { settingsRoutes } from './routes/settings.js';
 import { rosterRoutes } from './routes/roster.js';
 import { outboundRoutes } from './routes/outbound.js';
 import { pushRoutes } from './routes/push.js';
+import { visitRoutes } from './routes/visits.js';
+import type { Alerts } from './notify/alerts.js';
 
 export type AppDeps = {
   // Handles each WhatsApp message the webhook accepts; index.ts wires the router in.
@@ -23,6 +25,10 @@ export type AppDeps = {
   chakra?: ChakraClient;
   // The model and VLES client the test chat runs Moni with.
   agent?: AgentDeps;
+  // Tells staff when a visit changes; null leaves them unwarned.
+  alerts?: Alerts | null;
+  // The clock the visit routes use; tests pin it.
+  now?: () => Date;
 };
 
 export function buildApp(deps: AppDeps = {}): FastifyInstance {
@@ -42,6 +48,7 @@ export function buildApp(deps: AppDeps = {}): FastifyInstance {
   void app.register(mediaRoutes);
   void app.register(catalogRoutes);
   void app.register(leadRoutes({ chakra: deps.chakra }));
+  void app.register(visitRoutes({ chakra: deps.chakra, alerts: deps.alerts ?? null, now: deps.now }));
   void app.register(settingsRoutes);
   void app.register(rosterRoutes);
   void app.register(outboundRoutes);

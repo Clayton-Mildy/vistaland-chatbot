@@ -4,10 +4,11 @@ import { PushToggle } from "@/components/PushToggle";
 
 const ROLE_LABEL: Record<Role, string> = { admin: "Admin", sales: "Sales" };
 
-// Sales see Beranda and Leads (their own leads only); the rest is admin only.
+// Sales see Beranda, Leads and Jadwal (their own leads and visits only); the rest is admin only.
 const ITEMS: { href: string; label: string; adminOnly?: boolean }[] = [
   { href: "/", label: "Beranda" },
   { href: "/leads", label: "Leads" },
+  { href: "/schedule", label: "Jadwal" },
   { href: "/test-chat", label: "Uji Chat", adminOnly: true },
   { href: "/stock", label: "Stok Unit", adminOnly: true },
   { href: "/projects", label: "Proyek & Materi", adminOnly: true },

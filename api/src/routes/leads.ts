@@ -5,6 +5,7 @@ import { requireApiSecret } from '../middleware/apiSecret.js';
 import { getDb } from '../db/client.js';
 import { contacts, conversations, leadEvents, leads, messages, projects, salesAgents, staffUsers, vlesUnits, LEAD_STAGES } from '../db/schema/index.js';
 import { leadVisible, resolveScope, type StaffScope } from '../leads/access.js';
+import { sendStaffText } from '../leads/staffMessage.js';
 import { loadHandoverSummary } from '../leads/summary.js';
 import { activeVisitsForLeads, listVisitViewsForLead } from '../scheduling/visits.js';
 import { getAppSettings } from '../settings/appSettings.js';
@@ -13,7 +14,6 @@ import {
   getContact,
   getConversationByContact,
   getLead,
-  insertOutbound,
   isUnderTakeover,
   listEvents,
   setLeadStage,
@@ -262,19 +262,14 @@ export function leadRoutes(deps: { chakra?: ChakraClient }) {
       if (!lead || !contact || !conv) return reply.code(404).send(notFound);
       if (contact.isTest) return reply.code(409).send({ data: null, error: 'TEST_CONTACT' });
       if (!deps.chakra) return reply.code(503).send({ data: null, error: 'CHAKRA_NOT_CONFIGURED' });
-      const actor = actorOf(scope);
-      const staffUserId = scope.staffUserId;
-      try {
-        const sent = await deps.chakra.sendText(conv.waPhoneNumberId ?? '', contact.waPhone, body.data.body);
-        const row = await insertOutbound(conv.id, { sender: 'staff', staffUserId, kind: 'text', body: body.data.body, waMessageId: sent.waMessageId, status: 'sent' });
-        const until = new Date(Date.now() + (await getAppSettings()).takeoverHours * 3_600_000);
-        await setTakeover(conv.id, until, actor, 'dibalas staf dari dashboard');
-        return reply.code(201).send({ data: { id: row.id, humanTakeoverUntil: until }, error: null });
-      } catch (err) {
-        await insertOutbound(conv.id, { sender: 'staff', staffUserId, kind: 'text', body: body.data.body, waMessageId: null, status: 'failed' });
-        req.log.error({ err }, 'staff send failed');
+      const sent = await sendStaffText(deps.chakra, conv, contact, scope.staffUserId, body.data.body);
+      if (!sent.ok) {
+        req.log.error({ err: sent.error }, 'staff send failed');
         return reply.code(502).send({ data: null, error: 'SEND_FAILED' });
       }
+      const until = new Date(Date.now() + (await getAppSettings()).takeoverHours * 3_600_000);
+      await setTakeover(conv.id, until, actorOf(scope), 'dibalas staf dari dashboard');
+      return reply.code(201).send({ data: { id: sent.id, humanTakeoverUntil: until }, error: null });
     });
   };
 }
